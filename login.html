@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Log in — RemoveCarBackground</title>
+  <link rel="icon" href="/icons/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" href="/icons/logo-mark.png" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div class="bg-mesh" aria-hidden="true"></div>
+  <nav class="nav" id="nav">
+    <div class="wrap nav-inner">
+      <a class="logo" href="index.html"><img class="logo-mark" src="/icons/logo-mark.png" alt="" width="80" height="80" /><span class="logo-text">Remove<span>Car</span>Background</span></a>
+      <ul class="nav-links">
+        <li><a href="signup.html">Free trial</a></li>
+        <li><a class="nav-cta" href="editor.html">Editor</a></li>
+      </ul>
+      <button class="burger" id="burger" aria-label="Menu">☰</button>
+    </div>
+  </nav>
+
+  <main class="auth-wrap wrap">
+    <div class="auth-card">
+      <h1>Log in</h1>
+      <p class="sub">Real JWT auth — use the email and password from signup.</p>
+      <form class="form-grid" id="loginForm">
+        <label>Email</label>
+        <input name="email" type="email" required placeholder="you@dealership.com" />
+        <label>Password</label>
+        <input name="password" type="password" required placeholder="••••••••" minlength="6" />
+        <button class="btn btn-primary" type="submit">Log in</button>
+      </form>
+      <p class="switch">No account? <a href="signup.html">Start free trial</a></p>
+    </div>
+  </main>
+  <script src="js/main.js"></script>
+  <script src="js/auth.js"></script>
+</body>
+</html>

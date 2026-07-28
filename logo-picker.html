@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Transparent logos — pick one</title>
+  <link rel="icon" href="/icons/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" href="/icons/logo-mark.png" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+<style>
+    body { font-family: Outfit, system-ui, sans-serif; background:#e6eaef; color:#0f1419; margin:0; padding:28px; }
+    h1 { font-size:1.35rem; margin:0 0 6px; }
+    p { color:#5a6573; margin:0 0 22px; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:16px; max-width:1100px; }
+    .card { background:#fff; border:1px solid rgba(15,20,25,.12); border-radius:16px; padding:14px; text-align:center; }
+    .preview {
+      height:140px; border-radius:14px; display:grid; place-items:center;
+      background:
+        linear-gradient(45deg,#d7dde5 25%,transparent 25%),
+        linear-gradient(-45deg,#d7dde5 25%,transparent 25%),
+        linear-gradient(45deg,transparent 75%,#d7dde5 75%),
+        linear-gradient(-45deg,transparent 75%,#d7dde5 75%);
+      background-size:16px 16px;
+      background-position:0 0,0 8px,8px -8px,-8px 0;
+      background-color:#eef1f5;
+    }
+    .preview.dark {
+      background-color:#12171e;
+      background-image:
+        linear-gradient(45deg,#1c2530 25%,transparent 25%),
+        linear-gradient(-45deg,#1c2530 25%,transparent 25%),
+        linear-gradient(45deg,transparent 75%,#1c2530 75%),
+        linear-gradient(-45deg,transparent 75%,#1c2530 75%);
+      background-size:16px 16px;
+      background-position:0 0,0 8px,8px -8px,-8px 0;
+    }
+    .preview img { width:110px; height:110px; object-fit:contain; }
+    strong { display:block; margin-top:10px; }
+    span { color:#5a6573; font-size:.82rem; }
+    .note { margin-top:18px; font-size:.9rem; color:#5a6573; }
+  </style>
+</head>
+<body>
+  <h1>Transparent logos (website colors)</h1>
+  <p>Background nahi — transparent. Colors site se match: red + asphalt/white. Jo pasand ho number batao.</p>
+  <div class="grid">
+    <div class="card"><div class="preview dark"><img src="/icons/options/t1.png" alt="T1"></div><strong>T1</strong><span>White car + red line</span></div>
+    <div class="card"><div class="preview"><img src="/icons/options/t2.png" alt="T2"></div><strong>T2</strong><span>RC dark monogram</span></div>
+    <div class="card"><div class="preview"><img src="/icons/options/t3.png" alt="T3"></div><strong>T3</strong><span>Red car</span></div>
+    <div class="card"><div class="preview dark"><img src="/icons/options/t4.png" alt="T4"></div><strong>T4</strong><span>R + car</span></div>
+    <div class="card"><div class="preview dark"><img src="/icons/options/t5.png" alt="T5"></div><strong>T5</strong><span>Red outline car</span></div>
+    <div class="card"><div class="preview dark"><img src="/icons/options/t6.png" alt="T6"></div><strong>T6</strong><span>Car + cut arc</span></div>
+    <div class="card"><div class="preview"><img src="/icons/options/t7.png" alt="T7"></div><strong>T7</strong><span>Clean red car ★</span></div>
+    <div class="card"><div class="preview dark"><img src="/icons/options/t8.png" alt="T8"></div><strong>T8</strong><span>Clean white car (nav) ★</span></div>
+    <div class="card"><div class="preview"><img src="/icons/options/t9.png" alt="T9"></div><strong>T9</strong><span>RC dark ★</span></div>
+    <div class="card"><div class="preview dark"><img src="/icons/options/t10.png" alt="T10"></div><strong>T10</strong><span>RC white (nav) ★</span></div>
+  </div>
+  <p class="note">★ = true transparent (code-made, no tile). Dark checker = dark website nav pe kaisa dikhega.</p>
+</body>
+</html>

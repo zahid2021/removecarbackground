@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Free trial — RemoveCarBackground</title>
+  <link rel="icon" href="/icons/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" href="/icons/logo-mark.png" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div class="bg-mesh" aria-hidden="true"></div>
+  <nav class="nav" id="nav">
+    <div class="wrap nav-inner">
+      <a class="logo" href="index.html"><img class="logo-mark" src="/icons/logo-mark.png" alt="" width="80" height="80" /><span class="logo-text">Remove<span>Car</span>Background</span></a>
+      <ul class="nav-links">
+        <li><a href="login.html">Log in</a></li>
+        <li><a class="nav-cta" href="editor.html">Editor</a></li>
+      </ul>
+      <button class="burger" id="burger" aria-label="Menu">☰</button>
+    </div>
+  </nav>
+
+  <main class="auth-wrap wrap">
+    <div class="auth-card">
+      <h1>Start free trial</h1>
+      <p class="sub">Creates a real account with plan credits, JWT login, and a DMS API key.</p>
+      <form class="form-grid" id="signupForm">
+        <label>Full name</label>
+        <input name="name" required placeholder="Alex Dealer" />
+        <label>Work email</label>
+        <input name="email" type="email" required placeholder="you@dealership.com" />
+        <label>Dealership name</label>
+        <input name="company" required placeholder="City Motors" />
+        <label>Password</label>
+        <input name="password" type="password" required placeholder="Min 6 characters" minlength="6" />
+        <label>Plan interest</label>
+        <select name="plan">
+          <option>Core</option>
+          <option>Starter</option>
+          <option selected>Silver</option>
+          <option>Gold</option>
+          <option>Platinum</option>
+          <option>Enterprise</option>
+        </select>
+        <button class="btn btn-primary" type="submit">Create trial account</button>
+      </form>
+      <p class="switch">Already registered? <a href="login.html">Log in</a></p>
+    </div>
+  </main>
+  <script src="js/main.js"></script>
+  <script src="js/auth.js"></script>
+</body>
+</html>

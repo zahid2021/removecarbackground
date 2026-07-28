@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RemoveCarBackground — Car Photo Editing for Dealerships</title>
+  <meta name="description" content="Remove car backgrounds in seconds. Half-cut, full-cut, showroom scenes, plate covers, and upscaling for vehicle adverts." />
+  <meta name="theme-color" content="#0a0e12" />
+  <link rel="icon" href="/icons/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div class="bg-mesh" aria-hidden="true"></div>
+
+  <nav class="nav" id="nav">
+    <div class="wrap nav-inner">
+      <a class="logo" href="index.html"><img class="logo-mark" src="/icons/logo-mark.png" alt="" width="80" height="80" /><span class="logo-text">Remove<span>Car</span>Background</span></a>
+      <ul class="nav-links">
+        <li class="has-menu">
+          <a href="#solutions">Solutions</a>
+          <ul class="sub-menu">
+            <li><a href="editor.html">Web App</a></li>
+            <li><a href="#apps">Mobile App</a></li>
+            <li><a href="account.html">API Integration</a></li>
+            <li><a href="transformer.html">Web Transformer</a></li>
+            <li><a href="editor.html?mode=upscale">Image Upscaling</a></li>
+            <li><a href="editor.html?mode=plate">Number Plate Covers</a></li>
+          </ul>
+        </li>
+        <li><a href="examples.html">Examples</a></li>
+        <li><a href="#pricing">Pricing</a></li>
+        <li><a href="blog.html">Blog</a></li>
+        <li><a href="contact.html">Contact</a></li>
+        <li><a href="login.html">Log in</a></li>
+        <li><a class="nav-cta" href="signup.html">Sign Up</a></li>
+      </ul>
+      <button class="burger" id="burger" aria-label="Menu">☰</button>
+    </div>
+  </nav>
+
+  <header class="hero hero-cinema">
+    <div class="hero-cinema-bg" aria-hidden="true">
+      <img src="/images/demo/showcase-wide.jpg" alt="" width="1400" height="700" />
+    </div>
+    <div class="hero-cinema-shade" aria-hidden="true"></div>
+    <div class="wrap hero-cinema-inner">
+      <div class="hero-copy">
+        <div class="hero-brand">RemoveCar<em>Background</em></div>
+        <h1 class="hero-h1">Best car photo editing app to create vehicle adverts in seconds</h1>
+        <p class="hero-lead">
+          Designed to take the hard work out of creating stunning vehicle adverts — half-cut, full-cut, plates, upscale, and branded showroom scenes.
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="signup.html">Try for free!</a>
+          <a class="btn btn-ghost" href="contact.html" style="color:#fff;border-color:rgba(255,255,255,.35)">Book a Demo!</a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <section id="why" class="why-section">
+    <div class="wrap">
+      <div class="why-head reveal">
+<h2 class="section-title">Are your dealership images <em>working</em> for you?</h2>
+        <p class="section-copy">
+          We’ve got you covered with stunning car photo edits and customized background car photos that drive more clicks and sales.
+        </p>
+      </div>
+      <div class="why-grid">
+        <article class="why-card reveal">
+          <div class="why-num">01</div>
+          <h3>Improve efficiency</h3>
+          <p>Manually editing multiple car photos is time-consuming and costly. Transform backgrounds and make adjustments within seconds so you can focus on selling.</p>
+        </article>
+        <article class="why-card reveal">
+          <div class="why-num">02</div>
+          <h3>Save money &amp; space</h3>
+          <p>Traditional photography setups need booths and space. Shoot anywhere and produce professional adverts with custom car backgrounds — no physical studio required.</p>
+        </article>
+        <article class="why-card reveal">
+          <div class="why-num">03</div>
+          <h3>Build a visual identity</h3>
+          <p>Showcase vehicles consistently with branded backgrounds that reflect your dealership across website and social media.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section id="solutions" class="section-solutions">
+    <div class="wrap">
+<h2 class="section-title reveal">Solutions for every <em>dealership</em></h2>
+      <p class="section-copy reveal">Two professional finishes — authentic half-cut or a full showroom transformation.</p>
+
+      <article class="feature-split reveal">
+        <div class="feature-media">
+          <img src="/images/demo/hero-compare.jpg" alt="Half-Cut before and after" width="1100" height="620" />
+        </div>
+        <div class="feature-copy">
+<h3>Keep the floor. Clean the scene.</h3>
+          <p>Half Cut removes unsightly car backgrounds and replaces them with professional, branded car dealership backgrounds that represent your dealership across all platforms.</p>
+          <ul>
+            <li>Keeps original floor &amp; vehicle shadows</li>
+            <li>Only alters the vehicle background</li>
+            <li>A more authentic editing solution</li>
+          </ul>
+          <a class="btn btn-primary" href="contact.html">Book a Demo</a>
+        </div>
+      </article>
+
+      <article class="feature-split reverse reveal">
+        <div class="feature-media">
+          <img src="/images/demo/compare-full.jpg" alt="Full-Cut before and after" width="1100" height="620" />
+        </div>
+        <div class="feature-copy">
+<h3>Full showroom reset</h3>
+          <p>Full Cut goes one step further by replacing both unflattering backgrounds and unattractive surfaces, giving you a fully transformed image through advanced automotive photo editing.</p>
+          <ul>
+            <li>Complete photo transformation</li>
+            <li>Both floor and background enhanced</li>
+            <li>Build your dream showroom look</li>
+          </ul>
+          <a class="btn btn-dark" href="contact.html">Book a Demo</a>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="showroom-banner" aria-label="Showroom images">
+    <div class="showroom-banner-media">
+      <img src="/images/demo/hero-vip.jpg" alt="Showroom-style vehicle advert" width="1400" height="700" />
+    </div>
+    <div class="wrap showroom-banner-copy">
+<h2 class="section-title" style="color:#fff;max-width:14ch">Without the <em>cost!</em></h2>
+      <p>Studio-grade vehicle ads from ordinary lot photos — no booth, no downtime.</p>
+      <a class="btn btn-primary" href="examples.html">View Examples</a>
+    </div>
+  </section>
+
+  <section class="trusted-by" aria-label="Trusted by dealerships">
+    <div class="wrap">
+<p class="trusted-copy">
+        Join the growing number of dealerships using RemoveCarBackground to enhance inventory with professional car photo background solutions.
+      </p>
+      <div class="logo-marquee" aria-hidden="true">
+        <div class="logo-track">
+          <span>Beechwood</span><span>CSH Performance</span><span>Yeovil Audi</span>
+          <span>Chestnut Motors</span><span>RRG</span><span>Kirkham</span>
+          <span>City Motors</span><span>Prime Auto</span>
+          <span>Beechwood</span><span>CSH Performance</span><span>Yeovil Audi</span>
+          <span>Chestnut Motors</span><span>RRG</span><span>Kirkham</span>
+          <span>City Motors</span><span>Prime Auto</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="benefits">
+    <div class="wrap">
+      <div class="benefits-layout reveal">
+        <div>
+<h2 class="section-title">Built for <em>dealership</em> workflows</h2>
+          <div class="benefit-row benefit-stack">
+            <article class="benefit">
+              <div class="benefit-icon" aria-hidden="true"></div>
+              <h3>Bespoke visual identity</h3>
+              <p>Present your cars professionally with a bespoke background which represents your dealership.</p>
+            </article>
+            <article class="benefit">
+              <div class="benefit-icon" aria-hidden="true"></div>
+              <h3>Advert uniformity</h3>
+              <p>Build uniformity across your website and social platforms, giving customers a lasting impression.</p>
+            </article>
+            <article class="benefit">
+              <div class="benefit-icon" aria-hidden="true"></div>
+              <h3>Web &amp; mobile synchronisation</h3>
+              <p>All adverts sync instantly across mobile and web app for easy downloadable access.</p>
+            </article>
+          </div>
+          <a class="btn btn-primary" href="contact.html" style="margin-top:8px">Book a Demo</a>
+        </div>
+        <div class="benefits-visual">
+          <img src="/images/demo/after-brand.jpg" alt="Branded dealership vehicle advert" width="900" height="700" />
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="products">
+    <div class="wrap">
+<h2 class="section-title reveal">Your challenges, our <em>solutions</em></h2>
+      <p class="section-copy reveal">We’ve got you covered.</p>
+      <div class="product-rail product-rail-media">
+        <a class="product product-card reveal" href="editor.html">
+          <div class="product-media"><img src="/images/demo/prod-web.jpg" alt="Car photo editing web app" width="720" height="480" /></div>
+          <div class="product-body">
+            <div class="product-num">01 · Web App</div>
+            <h3>Web App</h3>
+            <p>Manual car photo editing takes too much time and money. Use our car editor online to bulk-edit your images — completed in seconds with our car background photo editor.</p>
+            <span class="product-link">Learn more →</span>
+          </div>
+        </a>
+        <a class="product product-card reveal" href="#apps">
+          <div class="product-media"><img src="/images/demo/prod-mobile.jpg" alt="Car photo editing mobile app" width="720" height="480" /></div>
+          <div class="product-body">
+            <div class="product-num">02 · Mobile App</div>
+            <h3>Mobile App</h3>
+            <p>No need for expensive photo booths. Take a picture of your car and customize it anywhere with our car photo editor app — without the hassle.</p>
+            <span class="product-link">Learn more →</span>
+          </div>
+        </a>
+        <a class="product product-card reveal" href="account.html">
+          <div class="product-media"><img src="/images/demo/prod-api.jpg" alt="API integration" width="720" height="480" /></div>
+          <div class="product-body">
+            <div class="product-num">03 · API Integration</div>
+            <h3>API Integration</h3>
+            <p>Streamline your workflow by integrating our professional car photo editing software into your existing system for seamless automotive photo editing across platforms.</p>
+            <span class="product-link">Learn more →</span>
+          </div>
+        </a>
+        <a class="product product-card reveal" href="editor.html?mode=plate">
+          <div class="product-media"><img src="/images/demo/prod-plate.jpg" alt="License plate covers" width="720" height="480" /></div>
+          <div class="product-body">
+            <div class="product-num">04 · License Plate Covers</div>
+            <h3>License Plate Covers</h3>
+            <p>Quickly edit license plates for brand consistency. Add or remove plate covers during the editing process for a polished, marketplace-ready look.</p>
+            <span class="product-link">Learn more →</span>
+          </div>
+        </a>
+        <a class="product product-card reveal" href="editor.html?mode=upscale">
+          <div class="product-media"><img src="/images/demo/prod-upscale.jpg" alt="Image upscale" width="720" height="480" /></div>
+          <div class="product-body">
+            <div class="product-num">05 · Image Upscale</div>
+            <h3>Image Upscale</h3>
+            <p>Improve the resolution of your images with our car retouching tools, providing high-quality car photos for every vehicle listing.</p>
+            <span class="product-link">Learn more →</span>
+          </div>
+        </a>
+        <a class="product product-card reveal" href="transformer.html">
+          <div class="product-media"><img src="/images/demo/prod-transform.jpg" alt="Website transformer" width="720" height="480" /></div>
+          <div class="product-body">
+            <div class="product-num">06 · Website Transformer</div>
+            <h3>Website Transformer</h3>
+            <p>Enhance your dealership’s online presence with uniform backgrounds for car photography that reflect your brand and build a memorable online identity.</p>
+            <span class="product-link">Learn more →</span>
+          </div>
+        </a>
+      </div>
+      <div class="section-cta-row reveal">
+        <a class="btn btn-primary" href="contact.html">Book a Demo</a>
+        <a class="btn btn-ghost" href="examples.html">View Examples</a>
+      </div>
+    </div>
+  </section>
+
+  <section id="transformer">
+    <div class="wrap">
+<h2 class="section-title reveal">One brand look for <em>every listing</em></h2>
+      <p class="section-copy reveal">
+        Uniform backgrounds across your dealership site — no expensive photo booth, no mismatched ads.
+      </p>
+      <div class="modes">
+        <article class="mode-panel reveal">
+          <div class="mode-media">
+            <img src="/images/demo/after-brand.jpg" alt="Batch brand backdrop result" width="960" height="540" />
+          </div>
+<h3>Transform stock pages</h3>
+          <p>Select a brand scene once, apply across multiple vehicles for a memorable online identity.</p>
+          <ul>
+            <li>Shared backdrop presets</li>
+            <li>Consistent crop &amp; output size</li>
+            <li>Ready for site / feed export</li>
+          </ul>
+          <a class="btn btn-dark" href="transformer.html">Open batch transformer</a>
+        </article>
+        <article class="mode-panel featured reveal">
+          <div class="mode-media">
+            <img src="/images/demo/after-listing.jpg" alt="Showroom style vehicle advert" width="960" height="540" />
+          </div>
+<h3>Studio look, lot photos</h3>
+          <p>Capture anywhere, publish like a premium showroom. Floor-aware half-cut or full reset.</p>
+          <div class="mini-gallery">
+            <img src="/images/demo/thumb-half.jpg" alt="" width="200" height="130" />
+            <img src="/images/demo/thumb-full.jpg" alt="" width="200" height="130" />
+            <img src="/images/demo/thumb-brand.jpg" alt="" width="200" height="130" />
+          </div>
+          <a class="btn btn-primary" href="signup.html">Start free trial</a>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section id="apps">
+    <div class="wrap">
+      <div class="app-band reveal">
+        <div>
+<h2 class="section-title" style="margin-bottom:10px">Edit on the <em>forecourt</em></h2>
+          <p class="section-copy" style="margin-bottom:0">
+            Install the Progressive Web App on iOS and Android — same editor, offline shell, live AI when online. Native store builds can wrap this later.
+          </p>
+          <div class="store-btns">
+            <a class="store-btn" href="account.html" id="pwaIos"><div><small>Install on</small>iPhone / iPad</div></a>
+            <a class="store-btn" href="account.html" id="pwaAndroid"><div><small>Install on</small>Android</div></a>
+            <a class="btn btn-ghost" href="editor.html">Use web app now</a>
+          </div>
+        </div>
+        <div class="phone-mock">
+          <img src="/images/demo/phone-ui.jpg" alt="Mobile editor preview with car cutout" width="420" height="780" />
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="testimonials" class="section-ink quotes-ink">
+    <div class="wrap">
+<h2 class="section-title reveal">Real feedback from <em>teams</em> on the lot</h2>
+      <div class="quote-grid quote-grid-wide">
+        <article class="quote reveal">
+          <div class="review-meta"><span class="g-badge">Google</span><div class="stars" aria-label="5 stars">★★★★★</div></div>
+          <p>“Excellent system, so quick and easy and customer service is excellent!!”</p>
+          <div class="who"><b>AJW Motors</b> Independent dealer</div>
+        </article>
+        <article class="quote reveal">
+          <div class="review-meta"><span class="g-badge">Google</span><div class="stars" aria-label="5 stars">★★★★★</div></div>
+          <p>“Great experience with these guys.”</p>
+          <div class="who"><b>Danny Neville</b> Dealership</div>
+        </article>
+        <article class="quote reveal">
+          <div class="review-meta"><span class="g-badge">Google</span><div class="stars" aria-label="5 stars">★★★★★</div></div>
+          <p>“I have been using it for the past few months and the system works so well for us. Saves a lot of headache when photographing on our forecourt and the team have been extremely helpful setting everything up. Highly recommend!”</p>
+          <div class="who"><b>M C</b> Used-car specialist</div>
+        </article>
+        <article class="quote reveal">
+          <div class="review-meta"><span class="g-badge">Google</span><div class="stars" aria-label="5 stars">★★★★★</div></div>
+          <p>“Excellent service — efficient, very helpful with any questions and queries. Would highly recommend.”</p>
+          <div class="who"><b>SK Car Sales</b> Retail dealer</div>
+        </article>
+        <article class="quote reveal">
+          <div class="review-meta"><span class="g-badge">Google</span><div class="stars" aria-label="5 stars">★★★★★</div></div>
+          <p>“We’re a European car dealership and we’ve seen an increase in car sales and conversion rate on our website. The staff is very supportive and helpful, answering every question. I recommend their software.”</p>
+          <div class="who"><b>Ion Galusca</b> Dealership</div>
+        </article>
+        <article class="quote reveal">
+          <div class="review-meta"><span class="g-badge">Google</span><div class="stars" aria-label="5 stars">★★★★★</div></div>
+          <p>“As an owner of a car dealer I use it on a daily basis and can honestly say it is super easy to use and is a fantastic system.”</p>
+          <div class="who"><b>Josh Brand</b> Dealer owner</div>
+        </article>
+        <article class="quote reveal">
+          <div class="review-meta"><span class="g-badge">Google</span><div class="stars" aria-label="5 stars">★★★★★</div></div>
+          <p>“We’ve been with them now for 3 years. A very easy operating tool which the sales lads have found straight-forward to use. Definitely would recommend.”</p>
+          <div class="who"><b>Roger Percival</b> Dealership</div>
+        </article>
+        <article class="quote reveal">
+          <div class="review-meta"><span class="g-badge">Google</span><div class="stars" aria-label="5 stars">★★★★★</div></div>
+          <p>“A game-changer! Automatic background replacement is seamless and gives listings a professional, consistent look. Saves hours of manual editing — outdoor or showroom-style, it’s reliable and incredibly easy to use.”</p>
+          <div class="who"><b>AVA Manager</b> Multi-site</div>
+        </article>
+        <article class="quote reveal">
+          <div class="review-meta"><span class="g-badge">Google</span><div class="stars" aria-label="5 stars">★★★★★</div></div>
+          <p>“Being on a busy industrial estate this is just what we needed — excellent sales results! Higher online penetration, service is spot on, and the software works superb.”</p>
+          <div class="who"><b>Canvey Trade Cars</b> Trade dealer</div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section id="partners">
+    <div class="wrap">
+<h2 class="section-title reveal">Partnered with leading <em>automotive</em> companies</h2>
+      <article class="partner-spotlight reveal">
+        <div class="partner-spotlight-media">
+          <img src="/images/demo/after-listing.jpg" alt="Automotive partnership" width="800" height="560" />
+        </div>
+        <div class="partner-spotlight-copy">
+<h3>Partnered with leading automotive companies</h3>
+          <p>
+            We are thrilled to grow partnerships with leading automotive providers. This collaboration highlights our innovative car background replacement
+            and AI car editing for dealers — helping dealerships elevate vehicle listings with professional-grade photos. By streamlining the car photo
+            editing process, we enable dealers to showcase inventory more effectively, attracting more customers and increasing sales.
+          </p>
+          <a class="btn btn-dark" href="blog.html">Read the full article here</a>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section id="pricing">
+    <div class="wrap">
+<h2 class="section-title reveal">Choose the plan that fits <em>your</em> business</h2>
+      <p class="section-copy reveal">Credit tiers sized to stock volume. Switch £ / $ / € — Stripe Checkout or demo top-up.</p>
+      <div class="currency-toggle" id="currencyToggle" role="group" aria-label="Currency">
+        <button type="button" data-currency="gbp" class="active">£ GBP</button>
+        <button type="button" data-currency="usd">$ USD</button>
+        <button type="button" data-currency="eur">€ EUR</button>
+      </div>
+      <div class="price-grid" id="priceGrid">
+        <article class="price reveal" data-plan="core">
+          <div class="credits">80 Credits</div>
+          <h3>Core</h3>
+          <div class="amount"><span class="price-val">£40</span> <small>/month</small></div>
+          <p class="mute">Suitable for approximately <strong>8 vehicle adverts p/m</strong></p>
+          <ul>
+            <li>Onboarding Support</li>
+            <li>Mobile App Access</li>
+            <li>Custom Backgrounds</li>
+            <li>Custom Branding</li>
+            <li>1GB Advert Storage</li>
+          </ul>
+          <a class="btn btn-ghost" href="signup.html">Try for free!</a>
+        </article>
+        <article class="price reveal" data-plan="starter">
+          <div class="credits">160 Credits</div>
+          <h3>Starter</h3>
+          <div class="amount"><span class="price-val">£75</span> <small>/month</small></div>
+          <p class="mute">Suitable for approximately <strong>15 vehicle adverts p/m</strong></p>
+          <ul>
+            <li>Onboarding Support</li>
+            <li>Mobile App Access</li>
+            <li>Custom Backgrounds</li>
+            <li>Custom Branding</li>
+            <li>1GB Advert Storage</li>
+          </ul>
+          <a class="btn btn-ghost" href="signup.html">Try for free!</a>
+        </article>
+        <article class="price hot reveal" data-plan="silver">
+          <div class="credits">360 Credits</div>
+          <h3>Silver</h3>
+          <div class="amount"><span class="price-val">£150</span> <small>/month</small></div>
+          <p class="mute">Suitable for approximately <strong>35 vehicle adverts p/m</strong></p>
+          <ul>
+            <li>Onboarding Support</li>
+            <li>Mobile App Access</li>
+            <li>Custom Backgrounds</li>
+            <li>Custom Branding</li>
+            <li>1GB Advert Storage</li>
+          </ul>
+          <a class="btn btn-primary" href="signup.html">Try for free!</a>
+        </article>
+        <article class="price reveal" data-plan="gold">
+          <div class="credits">600 Credits</div>
+          <h3>Gold</h3>
+          <div class="amount"><span class="price-val">£200</span> <small>/month</small></div>
+          <p class="mute">Suitable for approximately <strong>60 vehicle adverts p/m</strong></p>
+          <ul>
+            <li>Onboarding Support</li>
+            <li>Mobile App Access</li>
+            <li>Custom Backgrounds</li>
+            <li>Custom Branding</li>
+            <li>1GB Advert Storage</li>
+          </ul>
+          <a class="btn btn-ghost" href="signup.html">Try for free!</a>
+        </article>
+        <article class="price reveal" data-plan="platinum">
+          <div class="credits">1200 Credits</div>
+          <h3>Platinum</h3>
+          <div class="amount"><span class="price-val">£300</span> <small>/month</small></div>
+          <p class="mute">Suitable for approximately <strong>120 vehicle adverts p/m</strong></p>
+          <ul>
+            <li>Onboarding Support</li>
+            <li>Mobile App Access</li>
+            <li>Custom Backgrounds</li>
+            <li>Custom Branding</li>
+            <li>1GB Advert Storage</li>
+          </ul>
+          <a class="btn btn-ghost" href="signup.html">Try for free!</a>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section id="enterprise">
+    <div class="wrap">
+<h2 class="section-title reveal">Are you a larger dealership or dealer group needing <em>more</em> volume?</h2>
+      <div class="enterprise">
+        <div class="enterprise-card reveal">
+          <h3 style="font-family:var(--font-display);font-size:1.8rem;letter-spacing:-0.03em;margin-bottom:4px">Enterprise plans</h3>
+          <p>Our enterprise plans offer more credits and access to car image editing services designed for larger dealerships.</p>
+          <p style="color:var(--mute);margin:12px 0 18px">Book a Demo or leave your details, and we’ll contact you.</p>
+          <ul>
+            <li>Higher monthly credit pools</li>
+            <li>API &amp; feed integration support</li>
+            <li>Custom branding packs</li>
+            <li>Priority processing queue</li>
+            <li>14-day cancellation notice (no fixed term)</li>
+          </ul>
+          <a class="btn btn-primary" href="contact.html">Book a Demo</a>
+          <a class="btn btn-ghost" href="contact.html" style="margin-left:8px">Contact Us</a>
+        </div>
+        <div class="form-card reveal" id="enterprise-form">
+          <h3>Leave your details</h3>
+          <form class="form-grid" id="demoForm">
+            <label>Name</label>
+            <input name="name" required placeholder="Jane Dealer" />
+            <label>Work email</label>
+            <input name="email" type="email" required placeholder="you@dealership.com" />
+            <label>Dealership</label>
+            <input name="company" required placeholder="City Motors" />
+            <label>Monthly vehicle volume</label>
+            <select name="volume">
+              <option>Under 50</option>
+              <option>50–150</option>
+              <option>150–400</option>
+              <option>400+</option>
+            </select>
+            <label>Message</label>
+            <textarea name="message" rows="3" placeholder="Tell us about your stock workflow"></textarea>
+            <button class="btn btn-dark" type="submit">Request demo</button>
+            <div class="form-msg" id="demoMsg">Thanks — demo request saved locally. Backend email wiring comes next.</div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="cta-band reveal">
+        <h2>Ready to get started?</h2>
+        <p>Schedule a demo call with our team to see how we can tailor flawless results for your business.</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="signup.html">Try for free!</a>
+          <a class="btn btn-ghost" href="contact.html" style="color:#fff;border-color:rgba(255,255,255,.28)">Book a Demo</a>
+        </div>
+        <div class="store-btns" style="position:relative">
+          <a class="store-btn" href="account.html"><div><small>Download for</small>iOS</div></a>
+          <a class="store-btn" href="account.html"><div><small>Download for</small>Android</div></a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq">
+    <div class="wrap">
+<h2 class="section-title reveal">Quick <em>answers</em></h2>
+      <div class="faq-list">
+        <details class="faq-item reveal">
+          <summary>Who can benefit from using RemoveCarBackground?</summary>
+          <p>Car dealerships, automotive photographers, and private sellers. Whether you want to streamline vehicle advert creation, reduce photography costs, or make adverts stand out — we offer scalable solutions tailored to your needs.</p>
+        </details>
+        <details class="faq-item reveal">
+          <summary>What devices is RemoveCarBackground available on?</summary>
+          <p>Available as a web app on most computers and laptops, and as a mobile app / installable PWA for iOS and Android devices.</p>
+        </details>
+        <details class="faq-item reveal">
+          <summary>How does it help car dealers create professional listings?</summary>
+          <p>It helps you create professional vehicle listings by replacing unwanted backgrounds with full HD car backgrounds. Listings look clean and attractive, helping you get more attention from potential buyers.</p>
+        </details>
+        <details class="faq-item reveal">
+          <summary>How do I get started with RemoveCarBackground?</summary>
+          <p>Visit the website, sign up for a free trial, and explore the web app or mobile app for editing your car photos.</p>
+        </details>
+        <details class="faq-item reveal">
+          <summary>Is there a fixed-term contract?</summary>
+          <p>Subscriptions are not bound to fixed-term contract periods. We only require 14-days cancellation notice.</p>
+        </details>
+        <details class="faq-item reveal">
+          <summary>I need help getting set up — can you help me?</summary>
+          <p>Of course. Book a meeting with our support team and they’ll understand your requirements and get you set up in no time.</p>
+        </details>
+        <details class="faq-item reveal">
+          <summary>Can multiple users use RemoveCarBackground simultaneously?</summary>
+          <p>Yes — multiple users can access accounts simultaneously and image processing is asynchronous, meaning there is no effect on processing speed.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section id="blog">
+    <div class="wrap">
+<h2 class="section-title reveal">Featured <em>guides</em></h2>
+      <div class="blog-grid">
+        <a class="blog-card reveal" href="blog.html">
+          <div class="blog-thumb">
+            <img src="/images/demo/guide-listings.jpg" alt="Improve car listing photos" width="800" height="480" />
+          </div>
+          <div class="body">
+            <div class="tag">Featured</div>
+            <h3>How to improve car listing photos for better sales</h3>
+            <p>Lighting, angles, and background consistency that lift click-through.</p>
+          </div>
+        </a>
+        <a class="blog-card reveal" href="blog.html">
+          <div class="blog-thumb">
+            <img src="/images/demo/guide-mistakes.jpg" alt="Car photo mistakes to avoid" width="800" height="480" />
+          </div>
+          <div class="body">
+            <div class="tag">Featured</div>
+            <h3>Top car photo mistakes and how to fix each one</h3>
+            <p>Busy backgrounds, plate issues, soft focus — practical fixes.</p>
+          </div>
+        </a>
+        <a class="blog-card reveal" href="blog.html">
+          <div class="blog-thumb">
+            <img src="/images/demo/guide-workflow.jpg" alt="Half-Cut vs Full-Cut workflow" width="800" height="480" />
+          </div>
+          <div class="body">
+            <div class="tag">How to</div>
+            <h3>Half-Cut vs Full-Cut for dealership ads</h3>
+            <p>When to keep the floor and when to go full showroom.</p>
+          </div>
+        </a>
+      </div>
+      <div class="section-cta-row reveal">
+        <a class="btn btn-dark" href="blog.html">View all posts</a>
+      </div>
+    </div>
+  </section>
+
+  <footer class="site-footer">
+    <div class="wrap footer-grid">
+      <div>
+        <a class="logo" href="index.html"><img class="logo-mark" src="/icons/logo-mark.png" alt="" width="80" height="80" /><span class="logo-text">Remove<span>Car</span>Background</span></a>
+        <p class="footer-tag">Create professional &amp; engaging car adverts in seconds.</p>
+      </div>
+      <div>
+        <h4>Company</h4>
+        <ul>
+          <li>United Kingdom</li>
+          <li>VAT: TBD</li>
+          <li>Company: TBD</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Contact</h4>
+        <ul>
+          <li><a href="contact.html">Contact Form</a></li>
+          <li><a href="mailto:support@removecarbackground.com">support@removecarbackground.com</a></li>
+          <li><a href="tel:+441616363176">+44 161 6363176</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Product</h4>
+        <ul>
+          <li><a href="#apps">Mobile App</a></li>
+          <li><a href="editor.html">Web App</a></li>
+          <li><a href="examples.html">Examples</a></li>
+          <li><a href="editor.html?mode=upscale">Image Upscaling</a></li>
+          <li><a href="#pricing">Pricing</a></li>
+          <li><a href="blog.html">Blog</a></li>
+          <li><a href="transformer.html">Background Replacement Tool</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Follow Us</h4>
+        <ul class="footer-social">
+          <li><a href="#" aria-label="Facebook">Facebook</a></li>
+          <li><a href="#" aria-label="Instagram">Instagram</a></li>
+          <li><a href="#" aria-label="LinkedIn">LinkedIn</a></li>
+          <li><a href="#" aria-label="YouTube">Youtube</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="wrap footer-bottom">
+      <span>© 2026 RemoveCarBackground Ltd. All Rights Reserved.</span>
+      <span>
+        <a href="terms.html">Terms and Conditions</a> ·
+        <a href="privacy.html">Privacy</a> ·
+        <a href="disclaimer.html">Disclaimer</a>
+      </span>
+    </div>
+  </footer>
+
+  <script src="js/main.js"></script>
+</body>
+</html>

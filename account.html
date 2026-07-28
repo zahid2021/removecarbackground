@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Account — RemoveCarBackground</title>
+  <meta name="theme-color" content="#0a0e12" />
+    <link rel="icon" href="/icons/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" href="/icons/logo-mark.png" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div class="bg-mesh" aria-hidden="true"></div>
+  <nav class="nav" id="nav">
+    <div class="wrap nav-inner">
+      <a class="logo" href="index.html"><img class="logo-mark" src="/icons/logo-mark.png" alt="" width="80" height="80" /><span class="logo-text">Remove<span>Car</span>Background</span></a>
+      <ul class="nav-links">
+        <li><a href="editor.html">Editor</a></li>
+        <li><a href="transformer.html">Batch</a></li>
+        <li><a class="nav-cta" href="#" id="logoutBtn">Log out</a></li>
+      </ul>
+      <button class="burger" id="burger" aria-label="Menu">☰</button>
+    </div>
+  </nav>
+
+  <main class="wrap" style="padding:36px 0 60px">
+    <div class="section-tag">Account</div>
+    <h1 class="section-title" style="max-width:none">Welcome, <em id="userName">Dealer</em></h1>
+    <p class="section-copy" id="userMeta">Live workspace · credits · 1GB cloud gallery</p>
+
+    <div class="dash-grid">
+      <div class="stat">
+        <div class="label">Credits left</div>
+        <div class="val" id="creditsVal">—</div>
+      </div>
+      <div class="stat">
+        <div class="label">Storage</div>
+        <div class="val" style="font-size:1.2rem" id="storageVal">0 / 1 GB</div>
+      </div>
+      <div class="stat">
+        <div class="label">Plan</div>
+        <div class="val" style="font-size:1.4rem" id="planVal">Silver</div>
+      </div>
+    </div>
+
+    <div id="apiKeyOnce" class="auth-card" hidden style="margin:20px 0;max-width:none">
+      <h3 style="margin-top:0">Your DMS API key</h3>
+      <p class="mute">Shown once — copy and store securely.</p>
+      <code style="word-break:break-all;display:block;padding:12px;background:#eee;border-radius:8px"></code>
+    </div>
+
+    <div class="modes">
+      <article class="mode-panel">
+        <div class="mode-kicker">Billing</div>
+        <h3>Buy credits</h3>
+        <p id="stripeStatus">Loading Stripe status…</p>
+        <label class="mute">Plan</label>
+        <select class="field" id="checkoutPlan" style="margin:8px 0 12px">
+          <option>Core</option>
+          <option>Starter</option>
+          <option selected>Silver</option>
+          <option>Gold</option>
+          <option>Platinum</option>
+          <option>Enterprise</option>
+        </select>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-primary" type="button" id="checkoutBtn">Pay with Stripe</button>
+          <button class="btn btn-ghost" type="button" id="topupBtn">Demo +100 credits</button>
+        </div>
+      </article>
+      <article class="mode-panel featured">
+        <div class="mode-kicker">Create</div>
+        <h3>Open the editor</h3>
+        <p>Cuts, plate cover, upscale, custom brand backdrops. Results auto-save to your 1GB gallery.</p>
+        <a class="btn btn-primary" href="editor.html">Go to editor</a>
+        <a class="btn btn-ghost" href="transformer.html" style="margin-left:8px">Batch</a>
+      </article>
+    </div>
+
+    <div class="auth-card" style="margin-top:24px;max-width:none">
+      <h3 style="margin-top:0">Brand backdrops</h3>
+      <p class="mute">Upload your dealership showroom image — use it in the editor as a custom backdrop.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+        <input type="text" class="field" id="backdropName" placeholder="Name (e.g. City Motors red wall)" style="max-width:260px" />
+        <input type="file" id="backdropFile" accept="image/*" />
+        <button class="btn btn-primary" type="button" id="backdropUpload">Upload</button>
+      </div>
+      <div class="gallery-grid" id="backdropGallery"></div>
+    </div>
+
+    <div class="auth-card" style="margin-top:24px;max-width:none">
+      <h3 style="margin-top:0">Cloud advert gallery <span class="mute">(1GB)</span></h3>
+      <p class="mute">Processed images auto-save here when you are logged in.</p>
+      <div class="gallery-grid" id="advertGallery"></div>
+    </div>
+
+    <div class="auth-card" style="margin-top:24px;max-width:none">
+      <h3 style="margin-top:0">Team</h3>
+      <p class="mute">Invite editors or admins. They share this workspace’s gallery and brand backdrops. Credits come from the admin pool.</p>
+      <div id="teamSection">
+        <ul id="teamList" style="line-height:1.8"></ul>
+        <ul id="inviteList" class="mute" style="line-height:1.8"></ul>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px" id="inviteForm">
+          <input class="field" id="inviteEmail" type="email" placeholder="teammate@dealership.com" style="max-width:240px" />
+          <select class="field" id="inviteRole" style="max-width:120px">
+            <option value="editor">Editor</option>
+            <option value="admin">Admin</option>
+          </select>
+          <button class="btn btn-primary" type="button" id="inviteBtn">Send invite</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="auth-card" style="margin-top:24px;max-width:none">
+      <h3 style="margin-top:0">DMS / API keys</h3>
+      <p class="mute">Header <code>X-API-Key</code> on <code>POST /api/v1/process</code>. Docs: <a href="/api/v1/docs">/api/v1/docs</a></p>
+      <ul id="keysList" style="line-height:1.8"></ul>
+      <button class="btn btn-ghost" type="button" id="newKeyBtn">Generate new key</button>
+    </div>
+
+    <div class="auth-card" style="margin-top:24px;max-width:none">
+      <h3 style="margin-top:0">Mobile apps</h3>
+      <p class="mute">Install the PWA now, or open the native WebView shells in <code>mobile/</code> (Android Studio / Xcode) pointed at your live URL.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary" type="button" id="installBtn">Install PWA</button>
+        <a class="btn btn-ghost" href="/mobile/README.md" target="_blank">Native shell docs</a>
+      </div>
+    </div>
+  </main>
+  <script src="js/main.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/account.js"></script>
+</body>
+</html>

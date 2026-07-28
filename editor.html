@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Editor — RemoveCarBackground</title>
+  <meta name="description" content="Half-Cut, Full-Cut, license plate cover, upscale — live AI editor." />
+  <meta name="theme-color" content="#0a0e12" />
+    <link rel="icon" href="/icons/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" href="/icons/logo-mark.png" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body class="editor-page">
+  <div class="bg-mesh" aria-hidden="true"></div>
+
+  <nav class="nav" id="nav">
+    <div class="wrap nav-inner">
+      <a class="logo" href="index.html"><img class="logo-mark" src="/icons/logo-mark.png" alt="" width="80" height="80" /><span class="logo-text">Remove<span>Car</span>Background</span></a>
+      <ul class="nav-links">
+        <li><a href="transformer.html">Batch</a></li>
+        <li><a href="account.html">Account</a></li>
+        <li><span class="credits-chip" id="creditsChip" hidden></span></li>
+        <li><a class="nav-cta" href="editor.html">Editor</a></li>
+      </ul>
+      <button class="burger" id="burger" aria-label="Menu">☰</button>
+    </div>
+  </nav>
+
+  <main class="wrap editor-shell">
+    <aside class="panel">
+      <h2>Edit controls</h2>
+
+      <div class="tool-group">
+        <label>Cut mode</label>
+        <div class="seg" id="modeSeg">
+          <button type="button" data-mode="half" class="active">Half-Cut</button>
+          <button type="button" data-mode="full">Full-Cut</button>
+        </div>
+      </div>
+
+      <div class="tool-group">
+        <label>Showroom backdrop</label>
+        <select class="field" id="backdrop">
+          <option value="studio-white">Studio White</option>
+          <option value="graphite">Graphite Showroom</option>
+          <option value="brand-red">Brand Red Wall</option>
+          <option value="outdoor-soft">Outdoor Soft Gray</option>
+          <option value="checker">Transparent / Checker</option>
+        </select>
+      </div>
+
+      <div class="tool-group">
+        <label>License plate</label>
+        <div class="seg" id="plateSeg">
+          <button type="button" data-plate="none" class="active">Keep</button>
+          <button type="button" data-plate="cover">Cover</button>
+        </div>
+        <input class="field" id="plateText" type="text" maxlength="10" value="PRIVATE" hidden placeholder="Plate text" style="margin-top:8px" />
+      </div>
+
+      <div class="tool-group">
+        <label>Upscale</label>
+        <div class="slider-row">
+          <input type="range" id="upscale" min="1" max="4" step="1" value="1" />
+          <span class="mute" id="upscaleLabel">1× (original)</span>
+        </div>
+      </div>
+
+      <div class="side-note">
+        Real AI remove + plate cover + LANCZOS upscale. Logged-in users spend credits (1 base + extras). Guests can demo without login.
+      </div>
+    </aside>
+
+    <section class="canvas-area">
+      <div class="dropzone" id="dropzone">
+        <div class="dropzone-copy" id="emptyState">
+          <h3>Drop a car photo</h3>
+          <p>JPG or PNG · live AI process</p>
+          <button class="btn btn-primary" type="button" id="browseBtn">Choose image</button>
+          <input type="file" id="fileInput" accept="image/*" hidden />
+        </div>
+        <div class="preview-wrap" id="previewWrap" hidden>
+          <img class="preview-img" id="preview" alt="Uploaded car" />
+          <div class="mock-result" id="mockBadge" hidden>PROCESSING</div>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <button class="btn btn-primary" type="button" id="processBtn" disabled>Process cut</button>
+        <button class="btn btn-dark" type="button" id="downloadBtn" disabled>Download</button>
+        <button class="btn btn-ghost" type="button" id="clearBtn" disabled>Clear</button>
+        <span class="mute" id="statusText">Waiting for upload</span>
+      </div>
+    </section>
+
+    <aside class="panel">
+      <h2>Session</h2>
+      <div class="tool-group">
+        <label>Active settings</label>
+        <div class="side-note" id="summary">
+          Mode: Half-Cut<br />
+          Backdrop: Studio White<br />
+          Plate: Keep<br />
+          Upscale: 1×
+        </div>
+      </div>
+      <div class="tool-group">
+        <label>Recent</label>
+        <div class="history-list" id="history">
+          <div class="history-item">
+            <div class="history-thumb"></div>
+            <div>
+              <div>No exports yet</div>
+              <span class="status-pill">Idle</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <a class="btn btn-ghost" href="transformer.html" style="width:100%;margin-top:8px">Batch transformer →</a>
+    </aside>
+  </main>
+
+  <script src="js/main.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/editor.js"></script>
+</body>
+</html>

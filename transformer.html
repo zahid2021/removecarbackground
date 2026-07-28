@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Website Transformer — RemoveCarBackground</title>
+<meta name="theme-color" content="#c4121a" />
+    <link rel="icon" href="/icons/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" href="/icons/logo-mark.png" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+<link rel="manifest" href="manifest.webmanifest" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div class="bg-mesh" aria-hidden="true"></div>
+  <nav class="nav" id="nav">
+    <div class="wrap nav-inner">
+      <a class="logo" href="index.html"><img class="logo-mark" src="/icons/logo-mark.png" alt="" width="80" height="80" /><span class="logo-text">Remove<span>Car</span>Background</span></a>
+      <ul class="nav-links">
+        <li><a href="editor.html">Editor</a></li>
+        <li><a href="account.html">Account</a></li>
+        <li><a class="nav-cta" href="transformer.html">Batch</a></li>
+      </ul>
+      <button class="burger" id="burger" aria-label="Menu">☰</button>
+    </div>
+  </nav>
+
+  <main class="wrap" style="padding:36px 0 60px;max-width:820px">
+    <div class="section-tag">Website Transformer</div>
+    <h1 class="section-title" style="max-width:none">Batch cut for your stock feed</h1>
+    <p class="section-copy">Upload up to 20 car photos. Same backdrop, plate, and upscale applied to all — download a ZIP of PNGs.</p>
+
+    <div class="auth-card" style="max-width:none">
+      <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <label>Cut mode</label>
+          <select class="field" id="batchMode">
+            <option value="full">Full-Cut</option>
+            <option value="half">Half-Cut</option>
+          </select>
+        </div>
+        <div>
+          <label>Backdrop</label>
+          <select class="field" id="batchBackdrop">
+            <option value="studio-white">Studio White</option>
+            <option value="graphite">Graphite</option>
+            <option value="brand-red">Brand Red</option>
+            <option value="outdoor-soft">Outdoor Soft</option>
+            <option value="checker">Transparent</option>
+          </select>
+        </div>
+        <div>
+          <label>Plate</label>
+          <select class="field" id="batchPlate">
+            <option value="none">Keep</option>
+            <option value="cover">Cover</option>
+          </select>
+        </div>
+        <div>
+          <label>Upscale</label>
+          <select class="field" id="batchUpscale">
+            <option value="1">1×</option>
+            <option value="2">2×</option>
+            <option value="3">3×</option>
+            <option value="4">4×</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="dropzone" id="batchDrop" style="min-height:160px;margin:20px 0">
+        <div class="dropzone-copy">
+          <h3>Drop multiple car photos</h3>
+          <p>Max 20 images · ZIP download</p>
+          <button class="btn btn-primary" type="button" id="batchBrowse">Choose images</button>
+          <input type="file" id="batchFiles" accept="image/*" multiple hidden />
+        </div>
+      </div>
+
+      <ul id="batchList" class="mute" style="margin:0 0 16px;padding-left:18px;line-height:1.6"></ul>
+      <button class="btn btn-primary" type="button" id="batchRun" disabled>Process batch → ZIP</button>
+      <p class="mute" id="batchStatus" style="margin-top:12px">No files selected</p>
+    </div>
+  </main>
+  <script src="js/main.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/transformer.js"></script>
+</body>
+</html>

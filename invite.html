@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Accept invite — RemoveCarBackground</title>
+  <link rel="icon" href="/icons/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" href="/icons/logo-mark.png" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+<link rel="stylesheet" href="css/styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <div class="bg-mesh" aria-hidden="true"></div>
+  <main class="auth-wrap wrap">
+    <div class="auth-card">
+      <h1>Join workspace</h1>
+      <p class="sub" id="inviteMeta">Loading invite…</p>
+      <form class="form-grid" id="acceptForm">
+        <label>Your name</label>
+        <input name="name" required placeholder="Alex" />
+        <label>Password</label>
+        <input name="password" type="password" required minlength="6" />
+        <button class="btn btn-primary" type="submit">Accept invite</button>
+      </form>
+    </div>
+  </main>
+  <script src="js/auth.js"></script>
+  <script>
+    (async function () {
+      var token = new URLSearchParams(location.search).get("token");
+      var meta = document.getElementById("inviteMeta");
+      if (!token) { meta.textContent = "Missing invite token"; return; }
+      var res = await fetch("/api/team/invite/" + encodeURIComponent(token));
+      var data = await res.json();
+      if (!res.ok) { meta.textContent = data.detail || "Invite invalid"; return; }
+      meta.textContent = "Invite for " + data.email + " · role: " + data.role;
+      document.getElementById("acceptForm").addEventListener("submit", async function (e) {
+        e.preventDefault();
+        var fd = new FormData(e.target);
+        var r = await fetch("/api/team/accept", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: token, name: fd.get("name"), password: fd.get("password") }),
+        });
+        var j = await r.json();
+        if (!r.ok) { alert(j.detail || "Failed"); return; }
+        localStorage.setItem("rcb_token", j.token);
+        localStorage.setItem("rcb_user", JSON.stringify(j.user));
+        location.href = "account.html";
+      });
+    })();
+  </script>
+</body>
+</html>

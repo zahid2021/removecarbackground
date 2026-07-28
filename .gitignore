@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+data/
+*.db
+.DS_Store
+mobile/**/build/
+mobile/**/.gradle/
+*.log
+.idea/
+.vscode/
