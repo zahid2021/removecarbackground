@@ -23,7 +23,7 @@ from fastapi import (
     UploadFile,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 
@@ -751,6 +751,12 @@ def api_docs():
         "backdrops": list(__import__("pipeline").BACKDROPS.keys()),
         "credit_cost": "1 base +1 plate cover + (upscale-1)",
     }
+
+
+# Explicit root — StaticFiles html=True can 404 on "/" behind some proxies
+@app.get("/")
+def serve_index():
+    return FileResponse(ROOT / "index.html")
 
 
 # Serve frontend last so /api routes win
