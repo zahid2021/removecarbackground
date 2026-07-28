@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="format-detection" content="telephone=no" />
   <title>RemoveCarBackground — Car Photo Editing for Dealerships</title>
   <meta name="description" content="Remove car backgrounds in seconds. Half-cut, full-cut, showroom scenes, plate covers, and upscaling for vehicle adverts." />
   <meta name="theme-color" content="#0a0e12" />
@@ -13,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/styles.css?v=33" />
 </head>
 <body>
   <div class="bg-mesh" aria-hidden="true"></div>
@@ -46,7 +48,7 @@
 
   <header class="hero hero-cinema">
     <div class="hero-cinema-bg" aria-hidden="true">
-      <img src="/images/demo/showcase-wide.jpg" alt="" width="1400" height="700" />
+      <img src="/images/demo/showcase-wide.jpg" alt="" width="1400" height="700" loading="eager" fetchpriority="high" decoding="async" />
     </div>
     <div class="hero-cinema-shade" aria-hidden="true"></div>
     <div class="wrap hero-cinema-inner">
@@ -99,7 +101,7 @@
 
       <article class="feature-split reveal">
         <div class="feature-media">
-          <img src="/images/demo/hero-compare.jpg" alt="Half-Cut before and after" width="1100" height="620" />
+          <img src="/images/demo/hero-compare.jpg" alt="Half-Cut before and after" width="1100" height="620" loading="lazy" decoding="async" />
         </div>
         <div class="feature-copy">
 <h3>Keep the floor. Clean the scene.</h3>
@@ -115,7 +117,7 @@
 
       <article class="feature-split reverse reveal">
         <div class="feature-media">
-          <img src="/images/demo/compare-full.jpg" alt="Full-Cut before and after" width="1100" height="620" />
+          <img src="/images/demo/compare-full.jpg" alt="Full-Cut before and after" width="1100" height="620" loading="lazy" decoding="async" />
         </div>
         <div class="feature-copy">
 <h3>Full showroom reset</h3>
@@ -133,7 +135,7 @@
 
   <section class="showroom-banner" aria-label="Showroom images">
     <div class="showroom-banner-media">
-      <img src="/images/demo/hero-vip.jpg" alt="Showroom-style vehicle advert" width="1400" height="700" />
+      <img src="/images/demo/hero-vip.jpg" alt="Showroom-style vehicle advert" width="1400" height="700" loading="lazy" decoding="async" />
     </div>
     <div class="wrap showroom-banner-copy">
 <h2 class="section-title" style="color:#fff;max-width:14ch">Without the <em>cost!</em></h2>

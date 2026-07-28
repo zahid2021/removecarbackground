@@ -29,7 +29,12 @@ body {
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
 }
-img { max-width: 100%; display: block; }
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  -webkit-user-drag: none;
+}
 a { color: inherit; text-decoration: none; }
 button, input, select { font: inherit; }
 .wrap { width: min(100% - 40px, var(--max)); margin-inline: auto; }
@@ -239,7 +244,9 @@ button, input, select { font: inherit; }
 /* ===== Cinematic full-bleed hero ===== */
 .hero-cinema {
   position: relative;
-  min-height: min(92vh, 820px);
+  /* explicit height so Android resolves % on absolute imgs (min-height alone fails) */
+  height: min(92vh, 820px);
+  min-height: 520px;
   display: flex;
   align-items: flex-end;
   padding: 0 0 72px;
@@ -248,13 +255,20 @@ button, input, select { font: inherit; }
   animation: heroIn 1s var(--ease) both;
 }
 .hero-cinema-bg {
-  position: absolute; inset: 0;
+  position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
   z-index: 0;
+  overflow: hidden;
+  background: #0a0e12 url("/images/demo/showcase-wide.jpg") center center / cover no-repeat;
 }
 .hero-cinema-bg img {
-  width: 100%; height: 100%;
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
   object-fit: cover;
-  object-position: 60% 45%;
+  object-position: center center;
   transform: scale(1.04);
   animation: heroZoom 14s ease-in-out infinite alternate;
 }
@@ -264,9 +278,10 @@ button, input, select { font: inherit; }
 }
 .hero-cinema-shade {
   position: absolute; inset: 0; z-index: 1;
+  pointer-events: none;
   background:
-    linear-gradient(105deg, rgba(10,14,18,0.92) 0%, rgba(10,14,18,0.72) 42%, rgba(10,14,18,0.25) 70%, rgba(10,14,18,0.45) 100%),
-    linear-gradient(0deg, rgba(10,14,18,0.75) 0%, transparent 45%);
+    linear-gradient(105deg, rgba(10,14,18,0.88) 0%, rgba(10,14,18,0.62) 42%, rgba(10,14,18,0.22) 70%, rgba(10,14,18,0.4) 100%),
+    linear-gradient(0deg, rgba(10,14,18,0.7) 0%, transparent 45%);
 }
 .hero-cinema-inner {
   position: relative; z-index: 2;
@@ -453,10 +468,12 @@ button, input, select { font: inherit; }
   box-shadow: var(--shadow-lg);
   border: 1px solid var(--line);
   background: #0f1419;
+  min-height: 180px;
 }
 .feature-media img {
   width: 100%;
   aspect-ratio: 16 / 10;
+  height: auto;
   object-fit: cover;
   display: block;
   transition: transform .7s var(--ease);
@@ -498,7 +515,8 @@ button, input, select { font: inherit; }
 /* showroom banner */
 .showroom-banner {
   position: relative;
-  min-height: 420px;
+  height: 420px;
+  min-height: 320px;
   display: flex;
   align-items: center;
   padding: 80px 0;
@@ -506,10 +524,17 @@ button, input, select { font: inherit; }
   color: #fff;
 }
 .showroom-banner-media {
-  position: absolute; inset: 0;
+  position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
+  overflow: hidden;
+  background: #0a0e12 url("/images/demo/hero-vip.jpg") center 40% / cover no-repeat;
 }
 .showroom-banner-media img {
-  width: 100%; height: 100%;
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
   object-fit: cover;
   object-position: center 40%;
 }
@@ -1199,20 +1224,64 @@ section { padding: clamp(64px, 10vw, 100px) 0; position: relative; }
 @media (max-width: 980px) {
   .hero-stage { grid-template-columns: 1fr; padding: 24px; }
   .hero-copy { max-width: none; }
-  .hero-cinema { min-height: 78vh; padding-bottom: 56px; align-items: flex-end; }
+  .hero-cinema {
+    height: auto;
+    min-height: 72vh;
+    min-height: 72dvh;
+    padding: 96px 0 56px;
+    align-items: flex-end;
+  }
+  .hero-cinema-bg img,
+  .showroom-banner-media img {
+    /* Android: avoid GPU transform bugs that blank images */
+    transform: none !important;
+    animation: none !important;
+    object-position: center center;
+  }
+  .hero-cinema-shade {
+    background:
+      linear-gradient(180deg, rgba(10,14,18,0.45) 0%, rgba(10,14,18,0.28) 38%, rgba(10,14,18,0.82) 100%);
+  }
+  .showroom-banner {
+    height: auto;
+    min-height: 360px;
+    padding: 64px 0;
+  }
+  .showroom-banner-media::after {
+    background: linear-gradient(180deg, rgba(10,14,18,0.4) 0%, rgba(10,14,18,0.78) 100%);
+  }
   .trust-bar-inner { grid-template-columns: 1fr 1fr; }
   .feature-split,
   .feature-split.reverse { grid-template-columns: 1fr; }
   .feature-split.reverse .feature-media,
   .feature-split.reverse .feature-copy { order: unset; }
+  .feature-media img,
+  .product-media img,
+  .mode-media img,
+  .car-shot img,
+  .mini-gallery img,
+  .gallery-item img,
+  .partner-spotlight-media img,
+  .benefits-visual img,
+  .blog-thumb img,
+  .example-card img {
+    width: 100%;
+    height: auto;
+    max-width: 100%;
+    transform: none !important;
+  }
+  .feature-split:hover .feature-media img,
+  .product-card:hover .product-media img,
+  .blog-card:hover .blog-thumb img {
+    transform: none !important;
+  }
   .car-strip-inner { grid-template-columns: repeat(2, 1fr); }
   .why-grid,
   .problem-grid, .modes, .product-rail,
   .benefit-row, .quote-grid, .blog-grid,
   .enterprise, .app-band, .dash-grid { grid-template-columns: 1fr; }
   .editor-shell { grid-template-columns: 1fr; }
-  .phone-mock { margin: 20px auto 0; }
-  .showroom-banner { min-height: 360px; }
+  .phone-mock { margin: 20px auto 0; max-width: min(280px, 70vw); }
 }
 @media (max-width: 760px) {
   .car-strip-inner { grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -1221,7 +1290,7 @@ section { padding: clamp(64px, 10vw, 100px) 0; position: relative; }
   .nav-links { display: none; }
   .nav.open .nav-links {
     display: flex; flex-direction: column; align-items: stretch;
-    position: absolute; left: 0; right: 0; top: 72px;
+    position: absolute; left: 0; right: 0; top: 100%;
     background: rgba(12,16,22,0.98); border-bottom: 1px solid rgba(255,255,255,0.08);
     padding: 12px 20px 18px; gap: 0;
   }
@@ -1235,6 +1304,18 @@ section { padding: clamp(64px, 10vw, 100px) 0; position: relative; }
   }
   .burger { display: grid; place-items: center; }
   .hero-actions .btn { width: 100%; }
+  .hero-brand { font-size: clamp(1.85rem, 9vw, 2.6rem); }
+  .hero-lead { font-size: 1rem; }
+  .wrap { width: min(100% - 28px, var(--max)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-cinema-bg img,
+  .feature-media img,
+  .product-media img {
+    animation: none !important;
+    transform: none !important;
+  }
 }
 
 /* ===== MotorCut parity extras ===== */

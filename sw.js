@@ -1,5 +1,5 @@
 /* RemoveCarBackground PWA service worker */
-const CACHE = "rcb-v32";
+const CACHE = "rcb-v33";
 const ASSETS = [
   "/css/styles.css",
   "/js/main.js",
@@ -30,19 +30,26 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (url.pathname.startsWith("/api/")) return;
 
-  // Always network-first for HTML so landing updates (images) show
+  const isImage =
+    /\.(jpe?g|png|webp|gif|svg|ico)$/i.test(url.pathname) ||
+    url.pathname.startsWith("/images/");
+
+  // Network-first for HTML/CSS/JS/images so mobile always gets fresh assets
   if (
     event.request.mode === "navigate" ||
     url.pathname.endsWith(".html") ||
     url.pathname === "/" ||
     url.pathname.endsWith(".css") ||
-    url.pathname.endsWith(".js")
+    url.pathname.endsWith(".js") ||
+    isImage
   ) {
     event.respondWith(
       fetch(event.request)
         .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(event.request, copy));
+          if (res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put(event.request, copy));
+          }
           return res;
         })
         .catch(() => caches.match(event.request))
