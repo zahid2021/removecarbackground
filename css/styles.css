@@ -427,14 +427,6 @@ button, input, select { font: inherit; }
   border-color: rgba(225, 29, 46, 0.28);
 }
 .why-card:hover::before { opacity: 1; }
-.why-num {
-  font-family: var(--font-display);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  color: var(--accent);
-  margin-bottom: 16px;
-}
 .why-card h3 {
   font-family: var(--font-display);
   font-size: 1.25rem;
@@ -739,11 +731,6 @@ section { padding: clamp(64px, 10vw, 100px) 0; position: relative; }
   border-color: rgba(225, 29, 46, 0.35);
   transform: translateY(-3px);
 }
-.product-num {
-  font-family: var(--font-display);
-  font-size: 0.8rem; font-weight: 700; color: var(--accent);
-  margin-bottom: 18px;
-}
 .product h3 {
   font-family: var(--font-display);
   font-size: 1.2rem; letter-spacing: -0.02em; margin-bottom: 8px;
@@ -775,7 +762,6 @@ section { padding: clamp(64px, 10vw, 100px) 0; position: relative; }
 }
 .product-card:hover .product-media img { transform: scale(1.05); }
 .product-body { padding: 18px 18px 20px; }
-.product-card .product-num { margin-bottom: 8px; }
 .product-link {
   display: inline-block;
   margin-top: 12px;
