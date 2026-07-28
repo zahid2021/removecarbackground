@@ -70,9 +70,16 @@
     });
   }
 
-  // PWA
+  // PWA — force update so mobile drops stale HTML (old 01/02 labels)
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/sw.js").catch(function () {});
+    navigator.serviceWorker.register("/sw.js?v=35").then(function (reg) {
+      reg.update();
+    }).catch(function () {});
+    navigator.serviceWorker.addEventListener("message", function (event) {
+      if (event.data && event.data.type === "RCB_SW_UPDATED") {
+        window.location.reload();
+      }
+    });
   }
   window.addEventListener("beforeinstallprompt", function (e) {
     e.preventDefault();

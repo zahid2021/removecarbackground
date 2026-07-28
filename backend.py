@@ -756,7 +756,13 @@ def api_docs():
 # Explicit root — StaticFiles html=True can 404 on "/" behind some proxies
 @app.get("/")
 def serve_index():
-    return FileResponse(ROOT / "index.html")
+    return FileResponse(
+        ROOT / "index.html",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+        },
+    )
 
 
 # Serve frontend last so /api routes win
