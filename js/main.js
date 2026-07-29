@@ -107,7 +107,7 @@
 
   // PWA — force update so mobile drops stale HTML (old 01/02 labels)
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/sw.js?v=41").then(function (reg) {
+    navigator.serviceWorker.register("/sw.js?v=42").then(function (reg) {
       reg.update();
     }).catch(function () {});
     navigator.serviceWorker.addEventListener("message", function (event) {
