@@ -10,7 +10,42 @@
 
   if (burger && nav) {
     burger.addEventListener("click", function () {
-      nav.classList.toggle("open");
+      var open = nav.classList.toggle("open");
+      burger.setAttribute("aria-expanded", open ? "true" : "false");
+      document.body.style.overflow = open ? "hidden" : "";
+      if (!open) {
+        nav.querySelectorAll(".has-menu.open").forEach(function (el) {
+          el.classList.remove("open");
+        });
+      }
+    });
+
+    // Mobile: tap Solutions to expand/collapse (keep Login/Sign Up reachable)
+    nav.querySelectorAll(".has-menu > a").forEach(function (link) {
+      link.addEventListener("click", function (e) {
+        if (window.matchMedia("(max-width: 980px)").matches && nav.classList.contains("open")) {
+          e.preventDefault();
+          link.parentElement.classList.toggle("open");
+        }
+      });
+    });
+
+    // Close menu after navigating
+    nav.querySelectorAll(".nav-links a").forEach(function (link) {
+      link.addEventListener("click", function () {
+        if (!nav.classList.contains("open")) return;
+        // Solutions parent toggle — don't close menu
+        if (
+          link.parentElement &&
+          link.parentElement.classList.contains("has-menu") &&
+          !link.closest(".sub-menu")
+        ) {
+          return;
+        }
+        nav.classList.remove("open");
+        burger.setAttribute("aria-expanded", "false");
+        document.body.style.overflow = "";
+      });
     });
   }
 
@@ -72,7 +107,7 @@
 
   // PWA — force update so mobile drops stale HTML (old 01/02 labels)
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/sw.js?v=36").then(function (reg) {
+    navigator.serviceWorker.register("/sw.js?v=37").then(function (reg) {
       reg.update();
     }).catch(function () {});
     navigator.serviceWorker.addEventListener("message", function (event) {
