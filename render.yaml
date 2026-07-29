@@ -1,8 +1,11 @@
+# Render Blueprint — frontend (instant CDN) + API (Python)
+# Custom domain removecarbackground.com → attach to the static site in Dashboard,
+# then point DNS (see README / DOMAIN.md).
+
 services:
   - type: web
     name: removecarbackground
     runtime: python
-    # free = sleeps after ~15 min (shows Render wake-up page). Use starter for always-on.
     plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn backend:app --host 0.0.0.0 --port $PORT
@@ -13,7 +16,7 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: PUBLIC_BASE_URL
-        sync: false
+        value: https://removecarbackground.com
       - key: ALLOW_GUEST_PROCESS
         value: "1"
       - key: ALLOW_DEMO_TOPUP
@@ -24,3 +27,13 @@ services:
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
         sync: false
+
+  - type: web
+    name: rcb-demo
+    runtime: static
+    plan: free
+    buildCommand: bash build-static.sh
+    staticPublishPath: dist
+    domains:
+      - removecarbackground.com
+      - www.removecarbackground.com
