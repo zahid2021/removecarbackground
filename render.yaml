@@ -2,6 +2,7 @@ services:
   - type: web
     name: removecarbackground
     runtime: python
+    # free = sleeps after ~15 min (shows Render wake-up page). Use starter for always-on.
     plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn backend:app --host 0.0.0.0 --port $PORT
