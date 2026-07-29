@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=40" />
+  <link rel="stylesheet" href="css/styles.css?v=41" />
 </head>
 <body>
   <div class="bg-mesh" aria-hidden="true"></div>
@@ -47,15 +47,21 @@
         </div>
         <ul class="meet-meta">
           <li>
-            <span class="meet-ico" aria-hidden="true">⏱</span>
-            <div><strong>30 minutes</strong><span>Event date</span></div>
+            <span class="meet-ico" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            </span>
+            <div><strong>30 minutes</strong><span>Duration</span></div>
           </li>
           <li>
-            <span class="meet-ico" aria-hidden="true">📹</span>
-            <div><strong>Google Meet</strong><span id="meetTzLabel">Detecting timezone…</span></div>
+            <span class="meet-ico" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 10l4.5-2.5v9L15 14M3 8h12v8H3z"/></svg>
+            </span>
+            <div><strong>Google Meet</strong><span>Video conference</span></div>
           </li>
         </ul>
-        <p class="meet-note">Pick a date and time for a live product walkthrough — half-cut, full-cut, plates, upscale, and dealer workflows.</p>
+        <label class="meet-tz-label" for="meetTzSelect">Your city / timezone</label>
+        <select class="meet-tz-select" id="meetTzSelect" aria-label="Select city timezone"></select>
+        <p class="meet-note">Pick a date and time in your city. We’ll confirm the Google Meet link by email.</p>
         <p class="meet-note"><a href="mailto:support@removecarbackground.com">support@removecarbackground.com</a> · <a href="tel:+441616363176">+44 161 636 3176</a></p>
       </aside>
 
@@ -111,7 +117,7 @@
     </div>
   </footer>
   <script src="js/config.js"></script>
-  <script src="js/main.js?v=40"></script>
-  <script src="js/meet.js?v=40"></script>
+  <script src="js/main.js?v=41"></script>
+  <script src="js/meet.js?v=41"></script>
 </body>
 </html>
