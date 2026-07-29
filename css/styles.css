@@ -1663,6 +1663,10 @@ section { padding: clamp(64px, 10vw, 100px) 0; position: relative; }
 .ready-meet-intro { margin-bottom: 28px; }
 .ready-meet-intro .store-btns { margin-top: 4px; }
 .ready-meet-section .meet-shell { margin-top: 8px; }
+.meet-store-btns {
+  margin-top: 22px;
+  justify-content: flex-start;
+}
 
 .meet-shell {
   display: grid;
