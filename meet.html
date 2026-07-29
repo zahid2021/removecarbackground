@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Meet with RemoveCarBackground — Book a Demo</title>
+  <meta name="description" content="Book a 30-minute Google Meet demo with RemoveCarBackground." />
+  <meta name="theme-color" content="#0a0e12" />
+  <link rel="icon" href="/icons/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css?v=38" />
+</head>
+<body>
+  <div class="bg-mesh" aria-hidden="true"></div>
+  <nav class="nav" id="nav">
+    <div class="wrap nav-inner">
+      <a class="logo" href="index.html"><img class="logo-mark" src="/icons/logo-mark.png" alt="" width="80" height="80" /><span class="logo-text">Remove<span>Car</span>Background</span></a>
+      <ul class="nav-links">
+        <li><a href="index.html#solutions">Solutions</a></li>
+        <li><a href="examples.html">Examples</a></li>
+        <li><a href="index.html#pricing">Pricing</a></li>
+        <li><a href="blog.html">Blog</a></li>
+        <li><a href="meet.html">Book Demo</a></li>
+        <li><a href="meet.html">Book Demo</a></li>
+        <li><a href="contact.html">Contact</a></li>
+        <li><a href="login.html">Log in</a></li>
+        <li><a class="nav-cta" href="signup.html">Sign Up</a></li>
+      </ul>
+      <button class="burger" id="burger" aria-label="Menu">☰</button>
+    </div>
+  </nav>
+
+  <main class="wrap meet-page">
+    <div class="meet-shell" id="meetShell">
+      <aside class="meet-side">
+        <p class="meet-kicker">RemoveCarBackground</p>
+        <h1>Meet with RemoveCarBackground</h1>
+        <div class="meet-organizer">
+          <div class="meet-avatar" aria-hidden="true">RC</div>
+          <div>
+            <strong>Demo Team</strong>
+            <span>Organizer</span>
+          </div>
+        </div>
+        <ul class="meet-meta">
+          <li>
+            <span class="meet-ico" aria-hidden="true">⏱</span>
+            <div><strong>30 minutes</strong><span>Event date</span></div>
+          </li>
+          <li>
+            <span class="meet-ico" aria-hidden="true">📹</span>
+            <div><strong>Google Meet</strong><span id="meetTzLabel">Detecting timezone…</span></div>
+          </li>
+        </ul>
+        <p class="meet-note">Pick a date and time for a live product walkthrough — half-cut, full-cut, plates, upscale, and dealer workflows.</p>
+        <p class="meet-note"><a href="mailto:support@removecarbackground.com">support@removecarbackground.com</a> · <a href="tel:+441616363176">+44 161 636 3176</a></p>
+      </aside>
+
+      <section class="meet-main" id="meetStepCalendar">
+        <div class="meet-cal-head">
+          <button type="button" class="meet-nav-btn" id="meetPrev" aria-label="Previous month">‹</button>
+          <h2 id="meetMonthLabel">July 2026</h2>
+          <button type="button" class="meet-nav-btn" id="meetNext" aria-label="Next month">›</button>
+        </div>
+        <div class="meet-weekdays" aria-hidden="true">
+          <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+        </div>
+        <div class="meet-grid" id="meetGrid" role="grid" aria-label="Calendar"></div>
+        <div class="meet-slots-wrap" id="meetSlotsWrap" hidden>
+          <h3 id="meetSlotsTitle">Available times</h3>
+          <div class="meet-slots" id="meetSlots"></div>
+        </div>
+      </section>
+
+      <section class="meet-main" id="meetStepDetails" hidden>
+        <button type="button" class="meet-back" id="meetBack">← Back</button>
+        <h2>Confirm meeting</h2>
+        <p class="meet-selected" id="meetSelectedSummary"></p>
+        <form class="form-grid meet-form" id="meetForm">
+          <label>Name</label>
+          <input name="name" required placeholder="Your name" autocomplete="name" />
+          <label>Work email</label>
+          <input name="email" type="email" required placeholder="you@dealership.com" autocomplete="email" />
+          <label>Dealership / company</label>
+          <input name="company" required placeholder="City Motors" />
+          <label>Notes (optional)</label>
+          <textarea name="notes" rows="3" placeholder="What would you like to see on the call?"></textarea>
+          <button class="btn btn-primary" type="submit">Schedule Google Meet</button>
+        </form>
+      </section>
+
+      <section class="meet-main meet-done" id="meetStepDone" hidden>
+        <h2>You’re booked</h2>
+        <p id="meetDoneSummary"></p>
+        <p class="meet-note">A Google Meet link will be confirmed by email from our team. You can also add this hold to your calendar now.</p>
+        <div class="meet-done-actions">
+          <a class="btn btn-primary" id="meetGcal" href="#" target="_blank" rel="noopener">Add to Google Calendar</a>
+          <a class="btn btn-ghost" href="index.html">Back to home</a>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap footer-bottom" style="border:none">
+      <span>© 2026 RemoveCarBackground</span>
+      <span><a href="contact.html">Contact form</a> · <a href="signup.html">Free trial</a></span>
+    </div>
+  </footer>
+  <script src="js/config.js"></script>
+  <script src="js/main.js?v=38"></script>
+  <script src="js/meet.js?v=38"></script>
+</body>
+</html>

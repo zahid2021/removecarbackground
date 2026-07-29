@@ -123,6 +123,18 @@ def init_db() -> None:
                 created_at TEXT NOT NULL DEFAULT (datetime('now')),
                 FOREIGN KEY(workspace_id) REFERENCES workspaces(id)
             );
+            CREATE TABLE IF NOT EXISTS meetings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                email TEXT NOT NULL,
+                company TEXT,
+                notes TEXT,
+                meet_date TEXT NOT NULL,
+                meet_time TEXT NOT NULL,
+                timezone TEXT,
+                location TEXT DEFAULT 'Google Meet',
+                created_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
             """
         )
         _migrate(conn)
@@ -582,3 +594,44 @@ def delete_advert(workspace_id: int, advert_id: int) -> bool:
             (row["bytes"], workspace_id),
         )
     return True
+
+
+def save_meeting(
+    name: str,
+    email: str,
+    company: str,
+    notes: str,
+    meet_date: str,
+    meet_time: str,
+    timezone: str,
+    location: str = "Google Meet",
+) -> dict:
+    with connect() as conn:
+        # Ensure table exists on older databases
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS meetings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                email TEXT NOT NULL,
+                company TEXT,
+                notes TEXT,
+                meet_date TEXT NOT NULL,
+                meet_time TEXT NOT NULL,
+                timezone TEXT,
+                location TEXT DEFAULT 'Google Meet',
+                created_at TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+            """
+        )
+        cur = conn.execute(
+            """
+            INSERT INTO meetings (name, email, company, notes, meet_date, meet_time, timezone, location)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (name, email, company, notes, meet_date, meet_time, timezone, location),
+        )
+        row = conn.execute(
+            "SELECT * FROM meetings WHERE id = ?", (cur.lastrowid,)
+        ).fetchone()
+        return dict(row) if row else {"id": cur.lastrowid}

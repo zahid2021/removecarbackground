@@ -210,6 +210,40 @@ def health():
     }
 
 
+class MeetingIn(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    email: str = Field(min_length=3, max_length=200)
+    company: str = Field(default="", max_length=200)
+    notes: str = Field(default="", max_length=2000)
+    date: str = Field(min_length=8, max_length=32)
+    time: str = Field(min_length=1, max_length=32)
+    timezone: str = Field(default="UTC", max_length=64)
+    location: str = Field(default="Google Meet", max_length=64)
+
+    @field_validator("email")
+    @classmethod
+    def meeting_email_ok(cls, v: str) -> str:
+        v = v.strip().lower()
+        if "@" not in v:
+            raise ValueError("Invalid email")
+        return v
+
+
+@app.post("/api/meetings")
+def book_meeting(body: MeetingIn):
+    row = db.save_meeting(
+        name=body.name.strip(),
+        email=body.email,
+        company=body.company.strip(),
+        notes=body.notes.strip(),
+        meet_date=body.date.strip(),
+        meet_time=body.time.strip(),
+        timezone=body.timezone.strip() or "UTC",
+        location=body.location.strip() or "Google Meet",
+    )
+    return {"ok": True, "meeting": row}
+
+
 # ── Auth ──────────────────────────────────────────────────────
 
 @app.post("/api/auth/signup")
