@@ -1,8 +1,8 @@
 /* RemoveCarBackground PWA service worker */
-const CACHE = "rcb-v43";
+const CACHE = "rcb-v44";
 const ASSETS = [
-  "/css/styles.css?v=43",
-  "/js/main.js?v=43",
+  "/css/styles.css?v=44",
+  "/js/main.js?v=44",
   "/manifest.webmanifest",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
