@@ -72,7 +72,7 @@
 
   // PWA — force update so mobile drops stale HTML (old 01/02 labels)
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/sw.js?v=35").then(function (reg) {
+    navigator.serviceWorker.register("/sw.js?v=36").then(function (reg) {
       reg.update();
     }).catch(function () {});
     navigator.serviceWorker.addEventListener("message", function (event) {
@@ -81,6 +81,15 @@
       }
     });
   }
+
+  // Pre-warm the free API dyno in the background (does not block page paint)
+  try {
+    var api = window.RCB_API || window.location.origin;
+    if (api) {
+      fetch(api + "/api/health", { mode: "cors", cache: "no-store" }).catch(function () {});
+    }
+  } catch (e) {}
+
   window.addEventListener("beforeinstallprompt", function (e) {
     e.preventDefault();
     window.deferredPrompt = e;

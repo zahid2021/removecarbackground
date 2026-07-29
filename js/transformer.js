@@ -74,7 +74,7 @@
     if (t) headers.Authorization = "Bearer " + t;
 
     try {
-      var res = await fetch(window.location.origin + "/api/batch", {
+      var res = await fetch((window.RCB_API || window.location.origin) + "/api/batch", {
         method: "POST",
         body: fd,
         headers: headers,

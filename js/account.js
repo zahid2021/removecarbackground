@@ -1,5 +1,5 @@
 (function () {
-  var API = window.location.origin;
+  var API = window.RCB_API || window.location.origin;
 
   function token() {
     return (window.RCB && window.RCB.getToken()) || localStorage.getItem("rcb_token") || "";
@@ -28,7 +28,7 @@
     }
     gallery.innerHTML = data.adverts
       .map(function (a) {
-        var src = "/api/adverts/" + a.id + "/file?token=" + encodeURIComponent(token());
+        var src = API + "/api/adverts/" + a.id + "/file?token=" + encodeURIComponent(token());
         return (
           '<div class="gallery-item">' +
           '<img src="' +

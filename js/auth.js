@@ -1,7 +1,7 @@
 (function () {
   var TOKEN_KEY = "rcb_token";
   var USER_KEY = "rcb_user";
-  var API = window.location.origin;
+  var API = window.RCB_API || window.location.origin;
 
   function getToken() {
     return localStorage.getItem(TOKEN_KEY) || "";

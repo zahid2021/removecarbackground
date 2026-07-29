@@ -1,5 +1,6 @@
 (function () {
-  var API = window.location.origin + "/api/process";
+  var ROOT = window.RCB_API || window.location.origin;
+  var API = ROOT + "/api/process";
   var dropzone = document.getElementById("dropzone");
   var fileInput = document.getElementById("fileInput");
   var browseBtn = document.getElementById("browseBtn");
@@ -175,7 +176,7 @@
     var t = token();
     if (!t || !backdrop) return;
     try {
-      var res = await fetch(window.location.origin + "/api/backdrops", {
+      var res = await fetch(ROOT + "/api/backdrops", {
         headers: { Authorization: "Bearer " + t },
       });
       if (!res.ok) return;
