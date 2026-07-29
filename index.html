@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=45" />
+  <link rel="stylesheet" href="css/styles.css?v=46" />
 </head>
 <body>
   <div class="bg-mesh" aria-hidden="true"></div>
@@ -467,14 +467,17 @@
     </div>
   </section>
 
-  <section id="enterprise">
+  <section id="enterprise" class="enterprise-section">
     <div class="wrap">
-<h2 class="section-title reveal">Are you a larger dealership or dealer group needing <em>more</em> volume?</h2>
+      <p class="enterprise-eyebrow reveal">Enterprise Plans</p>
+      <h2 class="section-title reveal">Are you a larger dealership or dealer group needing <em>more</em> volume?</h2>
+      <p class="section-copy enterprise-lead reveal">
+        Our enterprise plans offer more credits and car image editing services designed for larger dealerships.
+        Book a demo or leave your details and we’ll contact you.
+      </p>
       <div class="enterprise">
         <div class="enterprise-card reveal">
-          <h3 style="font-family:var(--font-display);font-size:1.8rem;letter-spacing:-0.03em;margin-bottom:4px">Enterprise plans</h3>
-          <p>Our enterprise plans offer more credits and access to car image editing services designed for larger dealerships.</p>
-          <p style="color:var(--mute);margin:12px 0 18px">Book a Demo or leave your details, and we’ll contact you.</p>
+          <h3>What’s included</h3>
           <ul>
             <li>Higher monthly credit pools</li>
             <li>API &amp; feed integration support</li>
@@ -482,11 +485,14 @@
             <li>Priority processing queue</li>
             <li>14-day cancellation notice (no fixed term)</li>
           </ul>
-          <a class="btn btn-primary" href="meet.html">Book a Demo</a>
-          <a class="btn btn-ghost" href="contact.html" style="margin-left:8px">Contact Us</a>
+          <div class="enterprise-actions">
+            <a class="btn btn-primary" href="#ready">Book a Demo</a>
+            <a class="btn btn-ghost enterprise-ghost" href="contact.html">Contact Us</a>
+          </div>
         </div>
         <div class="form-card reveal" id="enterprise-form">
           <h3>Leave your details</h3>
+          <p class="form-card-lead">We’ll get back to you with the right enterprise option for your group.</p>
           <form class="form-grid" id="demoForm">
             <label>Name</label>
             <input name="name" required placeholder="Jane Dealer" />
@@ -504,7 +510,7 @@
             <label>Message</label>
             <textarea name="message" rows="3" placeholder="Tell us about your stock workflow"></textarea>
             <button class="btn btn-dark" type="submit">Request demo</button>
-            <div class="form-msg" id="demoMsg">Thanks — demo request saved locally. Backend email wiring comes next.</div>
+            <div class="form-msg" id="demoMsg">Thanks — we’ll be in touch shortly.</div>
           </form>
         </div>
       </div>
@@ -514,21 +520,12 @@
   <section id="ready" class="ready-meet-section">
     <div class="wrap">
       <div class="ready-meet-intro reveal">
-        <h2 class="section-title" style="max-width:16ch">Ready to get <em>started?</em></h2>
+        <h2 class="section-title">Ready to get <em>started?</em></h2>
         <p class="section-copy">
           Schedule a demo call with our team to see how we can tailor flawless results for your business.
         </p>
-        <div class="hero-actions" style="margin-bottom:18px">
-          <a class="btn btn-primary" href="signup.html">Try for free!</a>
-          <a class="btn btn-ghost" href="#meetShell">Pick a time below</a>
-        </div>
-        <div class="store-btns">
-          <a class="store-btn" href="account.html"><div><small>Download for</small>iOS</div></a>
-          <a class="store-btn" href="account.html"><div><small>Download for</small>Android</div></a>
-        </div>
       </div>
 
-      <!-- Google Meet calendar -->
       <div class="meet-shell reveal" id="meetShell">
         <aside class="meet-side">
           <p class="meet-kicker">Book a demo</p>
@@ -743,7 +740,7 @@
   </footer>
 
   <script src="js/config.js"></script>
-  <script src="js/main.js?v=45"></script>
-  <script src="js/meet.js?v=45"></script>
+  <script src="js/main.js?v=46"></script>
+  <script src="js/meet.js?v=46"></script>
 </body>
 </html>
