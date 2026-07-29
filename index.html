@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=39" />
+  <link rel="stylesheet" href="css/styles.css?v=40" />
 </head>
 <body>
   <div class="bg-mesh" aria-hidden="true"></div>
@@ -511,19 +511,90 @@
     </div>
   </section>
 
-  <section>
+  <section id="ready" class="ready-meet-section">
     <div class="wrap">
-      <div class="cta-band reveal">
-        <h2>Ready to get started?</h2>
-        <p>Schedule a demo call with our team to see how we can tailor flawless results for your business.</p>
-        <div class="hero-actions">
+      <div class="ready-meet-intro reveal">
+        <h2 class="section-title" style="max-width:16ch">Ready to get <em>started?</em></h2>
+        <p class="section-copy">
+          Schedule a demo call with our team to see how we can tailor flawless results for your business.
+        </p>
+        <div class="hero-actions" style="margin-bottom:18px">
           <a class="btn btn-primary" href="signup.html">Try for free!</a>
-          <a class="btn btn-ghost" href="meet.html" style="color:#fff;border-color:rgba(255,255,255,.28)">Book a Demo</a>
+          <a class="btn btn-ghost" href="#meetShell">Pick a time below</a>
         </div>
-        <div class="store-btns" style="position:relative">
+        <div class="store-btns">
           <a class="store-btn" href="account.html"><div><small>Download for</small>iOS</div></a>
           <a class="store-btn" href="account.html"><div><small>Download for</small>Android</div></a>
         </div>
+      </div>
+
+      <!-- Google Meet calendar (MotorCut book-meeting style) -->
+      <div class="meet-shell reveal" id="meetShell">
+        <aside class="meet-side">
+          <p class="meet-kicker">RemoveCarBackground</p>
+          <h3 class="meet-side-title">Meet with RemoveCarBackground</h3>
+          <div class="meet-organizer">
+            <div class="meet-avatar" aria-hidden="true">RC</div>
+            <div>
+              <strong>Demo Team</strong>
+              <span>Organizer</span>
+            </div>
+          </div>
+          <ul class="meet-meta">
+            <li>
+              <span class="meet-ico" aria-hidden="true">⏱</span>
+              <div><strong>30 minutes</strong><span>Event date</span></div>
+            </li>
+            <li>
+              <span class="meet-ico" aria-hidden="true">📹</span>
+              <div><strong>Google Meet</strong><span id="meetTzLabel">Detecting timezone…</span></div>
+            </li>
+          </ul>
+          <p class="meet-note">Choose a date and time — we’ll confirm your Google Meet link by email.</p>
+        </aside>
+
+        <section class="meet-main" id="meetStepCalendar">
+          <div class="meet-cal-head">
+            <button type="button" class="meet-nav-btn" id="meetPrev" aria-label="Previous month">‹</button>
+            <h2 id="meetMonthLabel">July 2026</h2>
+            <button type="button" class="meet-nav-btn" id="meetNext" aria-label="Next month">›</button>
+          </div>
+          <div class="meet-weekdays" aria-hidden="true">
+            <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+          </div>
+          <div class="meet-grid" id="meetGrid" role="grid" aria-label="Calendar"></div>
+          <div class="meet-slots-wrap" id="meetSlotsWrap" hidden>
+            <h3 id="meetSlotsTitle">Available times</h3>
+            <div class="meet-slots" id="meetSlots"></div>
+          </div>
+        </section>
+
+        <section class="meet-main" id="meetStepDetails" hidden>
+          <button type="button" class="meet-back" id="meetBack">← Back</button>
+          <h2>Confirm meeting</h2>
+          <p class="meet-selected" id="meetSelectedSummary"></p>
+          <form class="form-grid meet-form" id="meetForm">
+            <label>Name</label>
+            <input name="name" required placeholder="Your name" autocomplete="name" />
+            <label>Work email</label>
+            <input name="email" type="email" required placeholder="you@dealership.com" autocomplete="email" />
+            <label>Dealership / company</label>
+            <input name="company" required placeholder="City Motors" />
+            <label>Notes (optional)</label>
+            <textarea name="notes" rows="3" placeholder="What would you like to see on the call?"></textarea>
+            <button class="btn btn-primary" type="submit">Schedule Google Meet</button>
+          </form>
+        </section>
+
+        <section class="meet-main meet-done" id="meetStepDone" hidden>
+          <h2>You’re booked</h2>
+          <p id="meetDoneSummary"></p>
+          <p class="meet-done-copy">A Google Meet link will be confirmed by email. You can add this hold to your calendar now.</p>
+          <div class="meet-done-actions">
+            <a class="btn btn-primary" id="meetGcal" href="#" target="_blank" rel="noopener">Add to Google Calendar</a>
+            <a class="btn btn-ghost" href="signup.html">Start free trial</a>
+          </div>
+        </section>
       </div>
     </div>
   </section>
@@ -661,6 +732,7 @@
   </footer>
 
   <script src="js/config.js"></script>
-  <script src="js/main.js?v=39"></script>
+  <script src="js/main.js?v=40"></script>
+  <script src="js/meet.js?v=40"></script>
 </body>
 </html>

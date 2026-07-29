@@ -1670,12 +1670,34 @@ section { padding: clamp(64px, 10vw, 100px) 0; position: relative; }
   color: rgba(255,255,255,0.55);
   margin-bottom: 10px;
 }
-.meet-side h1 {
+.meet-side h1,
+.meet-side-title {
   font-family: var(--font-display);
   font-size: clamp(1.45rem, 3vw, 1.85rem);
   letter-spacing: -0.03em;
   line-height: 1.2;
   margin-bottom: 22px;
+  color: #fff;
+  font-weight: 700;
+}
+.meet-done-copy {
+  color: var(--mute);
+  font-size: 0.95rem;
+  line-height: 1.55;
+  margin-top: 8px;
+  max-width: 42ch;
+}
+.meet-done .meet-note { color: var(--mute); }
+
+.ready-meet-section {
+  padding: 48px 0 72px;
+}
+.ready-meet-intro {
+  margin-bottom: 28px;
+}
+.ready-meet-intro .store-btns { margin-top: 4px; }
+.ready-meet-section .meet-shell {
+  margin-top: 8px;
 }
 .meet-organizer {
   display: flex;
