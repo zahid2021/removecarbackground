@@ -22,13 +22,25 @@ def load_image(data: bytes) -> Image.Image:
     return img.convert("RGBA")
 
 
-def cutout(img: Image.Image) -> Image.Image:
-    import os
-    from rembg import new_session, remove
+_REMBG_SESSION = None
 
-    # u2netp = fast/small (~5MB). Set REMBG_MODEL=u2net for higher quality.
-    model = os.getenv("REMBG_MODEL", "u2netp")
-    session = new_session(model)
+
+def _rembg_session():
+    """Reuse one ONNX session — creating per request makes the UI feel stuck."""
+    global _REMBG_SESSION
+    import os
+    from rembg import new_session
+
+    if _REMBG_SESSION is None:
+        model = os.getenv("REMBG_MODEL", "u2netp")
+        _REMBG_SESSION = new_session(model)
+    return _REMBG_SESSION
+
+
+def cutout(img: Image.Image) -> Image.Image:
+    from rembg import remove
+
+    session = _rembg_session()
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     out = remove(buf.getvalue(), session=session)

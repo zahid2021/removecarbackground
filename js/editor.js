@@ -194,10 +194,20 @@
     if (!state.file) return;
     processBtn.disabled = true;
     downloadBtn.disabled = true;
-    setStatus("Processing — plate/upscale applied server-side…");
+    var started = Date.now();
+    setStatus("Processing… first run loads the AI model (can take 1–2 min on free hosting)");
     mockBadge.hidden = false;
     mockBadge.textContent =
       (state.mode === "half" ? "HALF-CUT" : "FULL-CUT") + " · WORKING";
+
+    var tick = setInterval(function () {
+      var s = Math.round((Date.now() - started) / 1000);
+      setStatus(
+        "Still working… " +
+          s +
+          "s (normal on cold start — do not refresh)"
+      );
+    }, 1000);
 
     var fd = new FormData();
     fd.append("file", state.file);
@@ -239,7 +249,9 @@
         (state.plate === "cover" ? " · PLATE" : "") +
         (upscale.value !== "1" ? " · " + upscale.value + "×" : "") +
         " · DONE";
-      setStatus("Done — download PNG result");
+      setStatus(
+        "Done in " + Math.round((Date.now() - started) / 1000) + "s — download PNG"
+      );
       history.innerHTML =
         '<div class="history-item"><div class="history-thumb"></div><div><div>' +
         (state.fileName || "image") +
@@ -248,6 +260,7 @@
       mockBadge.textContent = "ERROR";
       setStatus(err.message || "Processing failed — is the API server running?");
     } finally {
+      clearInterval(tick);
       enableActions(!!state.file);
     }
   });

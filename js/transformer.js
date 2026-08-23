@@ -58,7 +58,20 @@
   runBtn.addEventListener("click", async function () {
     if (!files.length) return;
     runBtn.disabled = true;
-    status.textContent = "Batch processing… first image may load the AI model";
+    var started = Date.now();
+    status.textContent =
+      "Batch processing " +
+      files.length +
+      " images… first one may load the AI model (1–2 min on free hosting)";
+    var tick = setInterval(function () {
+      var s = Math.round((Date.now() - started) / 1000);
+      status.textContent =
+        "Still processing " +
+        files.length +
+        " images… " +
+        s +
+        "s (do not refresh)";
+    }, 1000);
 
     var fd = new FormData();
     files.forEach(function (f) {
@@ -91,13 +104,16 @@
       a.download = "rcb-batch.zip";
       a.click();
       status.textContent =
-        "Done — ZIP downloaded (" +
+        "Done in " +
+        Math.round((Date.now() - started) / 1000) +
+        "s — ZIP downloaded (" +
         (res.headers.get("X-Batch-Count") || files.length) +
         " images). Credits used: " +
         (res.headers.get("X-Credits-Used") || "0");
     } catch (err) {
       status.textContent = err.message || "Batch failed";
     } finally {
+      clearInterval(tick);
       runBtn.disabled = files.length === 0;
     }
   });

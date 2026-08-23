@@ -48,8 +48,20 @@ db.init_db()
 app = FastAPI(
     title="RemoveCarBackground API",
     version="3.0.0",
-    description="Car BG remove, custom backdrops, storage, team, Stripe, batch & DMS API.",
+    description="Car background removal for dealers — MotorCut parity",
 )
+
+
+@app.on_event("startup")
+def _warmup_rembg() -> None:
+    """Load ONNX model once at boot so first user request is not stuck for minutes."""
+    try:
+        from pipeline import _rembg_session
+
+        _rembg_session()
+    except Exception as exc:  # noqa: BLE001 — boot should still succeed
+        print("rembg warmup skipped:", exc)
+
 
 app.add_middleware(
     CORSMiddleware,
