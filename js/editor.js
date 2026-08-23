@@ -24,8 +24,9 @@
 
   if (!dropzone) return;
 
+  // Default Full-Cut for dealer stock photos
   var state = {
-    mode: "half",
+    mode: "full",
     plate: "none",
     file: null,
     fileName: null,
@@ -35,14 +36,29 @@
   };
 
   var params = new URLSearchParams(window.location.search);
-  if (params.get("mode") === "full") {
-    state.mode = "full";
-    modeSeg.querySelectorAll("button").forEach(function (b) {
-      b.classList.toggle("active", b.dataset.mode === "full");
-    });
+  if (params.get("mode") === "half") {
+    state.mode = "half";
   }
+  modeSeg.querySelectorAll("button").forEach(function (b) {
+    b.classList.toggle("active", b.dataset.mode === state.mode);
+  });
   if (params.get("batch") === "1") {
     // hint for transformer users
+  }
+
+  // Preload AI so Process feels ~1s after ready
+  if (window.RCB_BG && window.RCB_BG.warmup) {
+    setStatus("Preparing AI model in browser…");
+    window.RCB_BG.warmup(function (key, current, total) {
+      if (!total) return;
+      setStatus("Preparing AI… " + Math.round((current / total) * 100) + "%");
+    })
+      .then(function () {
+        setStatus("AI ready — upload a car photo (usually ~1s after this)");
+      })
+      .catch(function () {
+        setStatus("Upload a car photo — AI loads on first Process");
+      });
   }
 
   function token() {
