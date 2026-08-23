@@ -54,11 +54,15 @@ app = FastAPI(
 
 @app.on_event("startup")
 def _warmup_rembg() -> None:
-    """Load ONNX model once at boot so first user request is not stuck for minutes."""
+    """Optional model load. Disabled by default on free tier to avoid boot OOM."""
+    if os.getenv("WARMUP_REMBG", "0") != "1":
+        print("rembg warmup skipped (set WARMUP_REMBG=1 to enable)")
+        return
     try:
         from pipeline import _rembg_session
 
         _rembg_session()
+        print("rembg warmup ok")
     except Exception as exc:  # noqa: BLE001 — boot should still succeed
         print("rembg warmup skipped:", exc)
 

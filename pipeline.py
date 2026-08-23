@@ -1,9 +1,18 @@
 """Image processing: rembg, custom backdrops, OpenCV plate detect, sharp upscale."""
 from __future__ import annotations
 
+import gc
 import io
+import os
 from pathlib import Path
 from typing import Optional, Tuple
+
+# Keep ONNX / BLAS memory low on Render free (512MB)
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("ORT_NUM_THREADS", "1")
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
+os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
@@ -15,6 +24,9 @@ BACKDROPS = {
     "outdoor-soft": (210, 216, 222),
     "checker": None,
 }
+
+# Free-tier safe default (was 1600 — OOM on Render 512MB)
+DEFAULT_MAX_SIDE = int(os.getenv("PROCESS_MAX_SIDE", "1024"))
 
 
 def load_image(data: bytes) -> Image.Image:
@@ -28,10 +40,10 @@ _REMBG_SESSION = None
 def _rembg_session():
     """Reuse one ONNX session — creating per request makes the UI feel stuck."""
     global _REMBG_SESSION
-    import os
     from rembg import new_session
 
     if _REMBG_SESSION is None:
+        # u2netp = fast/small (~5MB). Set REMBG_MODEL=u2net for higher quality.
         model = os.getenv("REMBG_MODEL", "u2netp")
         _REMBG_SESSION = new_session(model)
     return _REMBG_SESSION
@@ -41,10 +53,22 @@ def cutout(img: Image.Image) -> Image.Image:
     from rembg import remove
 
     session = _rembg_session()
+    # Shrink further if still large (extra safety for free RAM)
+    w, h = img.size
+    hard_cap = int(os.getenv("REMBG_HARD_CAP", "960"))
+    if max(w, h) > hard_cap:
+        scale = hard_cap / max(w, h)
+        img = img.resize((max(1, int(w * scale)), max(1, int(h * scale))), Image.Resampling.LANCZOS)
     buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    out = remove(buf.getvalue(), session=session)
-    return Image.open(io.BytesIO(out)).convert("RGBA")
+    img.save(buf, format="PNG", optimize=True)
+    raw = buf.getvalue()
+    buf.close()
+    out = remove(raw, session=session, alpha_matting=False)
+    del raw
+    result = Image.open(io.BytesIO(out)).convert("RGBA")
+    del out
+    gc.collect()
+    return result
 
 
 def _backdrop_canvas(size: Tuple[int, int], backdrop_key: str, custom_path: Optional[Path] = None) -> Image.Image:
@@ -230,9 +254,15 @@ def process_car_image(
     plate: str = "none",
     plate_text: str = "PRIVATE",
     upscale: int = 1,
-    max_side: int = 1600,
+    max_side: int | None = None,
     custom_backdrop_path: Optional[Path] = None,
 ) -> bytes:
+    if max_side is None:
+        max_side = DEFAULT_MAX_SIDE
+    # Cap upscale on low-memory hosts
+    if os.getenv("LOW_MEMORY", "1") == "1":
+        upscale = min(int(upscale), 2)
+
     original = load_image(data)
     w, h = original.size
     scale = min(1.0, max_side / max(w, h))
@@ -246,14 +276,21 @@ def process_car_image(
     else:
         result = composite(subject, backdrop, custom_backdrop_path)
 
+    # Free intermediates before plate/upscale
+    del original, subject
+    gc.collect()
+
     if plate == "cover":
         result = cover_license_plate(result, plate_text)
 
     result = upscale_image(result, upscale)
 
     out = io.BytesIO()
-    result.save(out, format="PNG")
-    return out.getvalue()
+    result.save(out, format="PNG", optimize=True)
+    png = out.getvalue()
+    del result, out
+    gc.collect()
+    return png
 
 
 def credit_cost(plate: str, upscale: int) -> int:
