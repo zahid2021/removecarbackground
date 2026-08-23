@@ -81,8 +81,16 @@ def hash_password(password: str) -> bytes:
     return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
 
 
-def verify_password(password: str, password_hash: bytes) -> bool:
+def verify_password(password: str, password_hash) -> bool:
     try:
+        if password_hash is None:
+            return False
+        if isinstance(password_hash, memoryview):
+            password_hash = password_hash.tobytes()
+        elif isinstance(password_hash, str):
+            password_hash = password_hash.encode("utf-8")
+        elif not isinstance(password_hash, (bytes, bytearray)):
+            password_hash = bytes(password_hash)
         return bcrypt.checkpw(password.encode("utf-8"), password_hash)
     except Exception:
         return False
@@ -218,11 +226,20 @@ class AcceptInviteIn(BaseModel):
 
 @app.get("/api/health")
 def health():
+    users = 0
+    try:
+        with db.connect() as conn:
+            row = conn.execute("SELECT COUNT(*) AS c FROM users").fetchone()
+            users = int(row["c"] if isinstance(row, dict) else row[0])
+    except Exception:  # noqa: BLE001
+        users = -1
     return {
         "status": "ok",
         "service": "removecarbackground",
         "stripe": bool(STRIPE_SECRET),
         "guest_process": ALLOW_GUEST_PROCESS,
+        "db": "postgres" if db.USE_PG else "sqlite",
+        "users": users,
     }
 
 
@@ -285,7 +302,12 @@ def signup(body: SignupIn):
 @app.post("/api/auth/login")
 def login(body: LoginIn):
     user = db.get_user_by_email(body.email)
-    if not user or not verify_password(body.password, user["password_hash"]):
+    if not user:
+        raise HTTPException(
+            status_code=401,
+            detail="No account for this email — please Sign up again (one-time after the login fix).",
+        )
+    if not verify_password(body.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     token = make_token(user["id"], user["email"])
     return {"token": token, "user": db.public_user(user)}

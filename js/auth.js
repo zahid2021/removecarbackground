@@ -30,6 +30,19 @@
     return t ? { Authorization: "Bearer " + t, "Content-Type": "application/json" } : { "Content-Type": "application/json" };
   }
 
+  function errDetail(json, fallback) {
+    if (!json || json.detail == null) return fallback;
+    if (typeof json.detail === "string") return json.detail;
+    if (Array.isArray(json.detail)) {
+      return json.detail
+        .map(function (d) {
+          return d.msg || d.message || JSON.stringify(d);
+        })
+        .join("; ");
+    }
+    return String(json.detail);
+  }
+
   window.RCB = {
     getToken: getToken,
     readUser: readUser,
@@ -67,8 +80,10 @@
             password: data.get("password"),
           }),
         });
-        var json = await res.json();
-        if (!res.ok) throw new Error(json.detail || "Login failed");
+        var json = await res.json().catch(function () {
+          return {};
+        });
+        if (!res.ok) throw new Error(errDetail(json, "Login failed"));
         saveSession(json.token, json.user);
         window.location.href = "account.html";
       } catch (err) {
@@ -97,8 +112,10 @@
             plan: data.get("plan") || "Silver",
           }),
         });
-        var json = await res.json();
-        if (!res.ok) throw new Error(json.detail || "Signup failed");
+        var json = await res.json().catch(function () {
+          return {};
+        });
+        if (!res.ok) throw new Error(errDetail(json, "Signup failed"));
         saveSession(json.token, json.user);
         if (json.api_key) {
           localStorage.setItem("rcb_api_key_once", json.api_key);

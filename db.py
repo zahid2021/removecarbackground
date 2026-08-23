@@ -1,15 +1,63 @@
-"""SQLite persistence: users, workspaces, storage, invites, backdrops."""
+"""Persistence: users, workspaces, storage, invites, backdrops.
+
+Uses Postgres when DATABASE_URL is set (required on Render — local SQLite
+is wiped on every free-service sleep/redeploy). Otherwise SQLite under
+RCB_DATA_DIR or ./data.
+"""
 from __future__ import annotations
 
+import os
 import secrets
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any, Iterator
 
 ROOT = Path(__file__).resolve().parent
-DB_PATH = ROOT / "data" / "rcb.db"
-STORAGE_ROOT = ROOT / "data" / "storage"
-BACKDROP_ROOT = ROOT / "data" / "backdrops"
+
+_raw_db_url = (os.getenv("DATABASE_URL") or "").strip()
+# Render sometimes gives postgres:// — psycopg wants postgresql://
+DATABASE_URL = (
+    _raw_db_url.replace("postgres://", "postgresql://", 1) if _raw_db_url else ""
+)
+USE_PG = DATABASE_URL.startswith("postgresql://")
+
+_data_root = Path(os.getenv("RCB_DATA_DIR") or (ROOT / "data"))
+DB_PATH = _data_root / "rcb.db"
+STORAGE_ROOT = _data_root / "storage"
+BACKDROP_ROOT = _data_root / "backdrops"
+
+
+def _q(sql: str) -> str:
+    """SQLite uses ? placeholders; Postgres uses %s."""
+    if USE_PG:
+        return sql.replace("?", "%s")
+    return sql
+
+
+def _row(row: Any) -> dict | None:
+    if row is None:
+        return None
+    if isinstance(row, dict):
+        return dict(row)
+    return dict(row)
+
+
+def _insert_id(cur: Any) -> int:
+    """Works with RETURNING id (both backends) or sqlite lastrowid."""
+    try:
+        got = cur.fetchone()
+        if got is not None:
+            if isinstance(got, dict):
+                return int(got["id"])
+            # sqlite Row or tuple
+            try:
+                return int(got["id"])
+            except (TypeError, KeyError, IndexError):
+                return int(got[0])
+    except Exception:
+        pass
+    return int(cur.lastrowid)
 
 STORAGE_LIMIT_BYTES = 1 * 1024 * 1024 * 1024  # 1GB per workspace
 
@@ -33,146 +81,310 @@ PLAN_PRICES_GBP = {
 
 
 def init_db() -> None:
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     STORAGE_ROOT.mkdir(parents=True, exist_ok=True)
     BACKDROP_ROOT.mkdir(parents=True, exist_ok=True)
+    if not USE_PG:
+        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with connect() as conn:
-        conn.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS workspaces (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                storage_used INTEGER NOT NULL DEFAULT 0,
-                created_at TEXT NOT NULL DEFAULT (datetime('now'))
-            );
-
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                email TEXT NOT NULL UNIQUE,
-                name TEXT NOT NULL,
-                company TEXT NOT NULL DEFAULT '',
-                password_hash BLOB NOT NULL,
-                plan TEXT NOT NULL DEFAULT 'Silver',
-                credits INTEGER NOT NULL DEFAULT 360,
-                workspace_id INTEGER,
-                role TEXT NOT NULL DEFAULT 'admin',
-                created_at TEXT NOT NULL DEFAULT (datetime('now')),
-                FOREIGN KEY(workspace_id) REFERENCES workspaces(id)
-            );
-
-            CREATE TABLE IF NOT EXISTS api_keys (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                key_hash TEXT NOT NULL UNIQUE,
-                key_prefix TEXT NOT NULL,
-                label TEXT NOT NULL DEFAULT 'default',
-                created_at TEXT NOT NULL DEFAULT (datetime('now')),
-                FOREIGN KEY(user_id) REFERENCES users(id)
-            );
-
-            CREATE TABLE IF NOT EXISTS payments (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER,
-                stripe_session_id TEXT UNIQUE,
-                plan TEXT,
-                credits_added INTEGER NOT NULL DEFAULT 0,
-                amount INTEGER NOT NULL DEFAULT 0,
-                status TEXT NOT NULL DEFAULT 'pending',
-                created_at TEXT NOT NULL DEFAULT (datetime('now')),
-                FOREIGN KEY(user_id) REFERENCES users(id)
-            );
-
-            CREATE TABLE IF NOT EXISTS process_log (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER,
-                mode TEXT,
-                credits_used INTEGER NOT NULL DEFAULT 1,
-                created_at TEXT NOT NULL DEFAULT (datetime('now'))
-            );
-
-            CREATE TABLE IF NOT EXISTS invites (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                workspace_id INTEGER NOT NULL,
-                email TEXT NOT NULL,
-                role TEXT NOT NULL DEFAULT 'editor',
-                token TEXT NOT NULL UNIQUE,
-                invited_by INTEGER NOT NULL,
-                status TEXT NOT NULL DEFAULT 'pending',
-                created_at TEXT NOT NULL DEFAULT (datetime('now')),
-                FOREIGN KEY(workspace_id) REFERENCES workspaces(id)
-            );
-
-            CREATE TABLE IF NOT EXISTS backdrops (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                workspace_id INTEGER NOT NULL,
-                name TEXT NOT NULL,
-                filename TEXT NOT NULL,
-                created_by INTEGER,
-                created_at TEXT NOT NULL DEFAULT (datetime('now')),
-                FOREIGN KEY(workspace_id) REFERENCES workspaces(id)
-            );
-
-            CREATE TABLE IF NOT EXISTS adverts (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                workspace_id INTEGER NOT NULL,
-                user_id INTEGER,
-                filename TEXT NOT NULL,
-                original_name TEXT,
-                bytes INTEGER NOT NULL DEFAULT 0,
-                mode TEXT,
-                created_at TEXT NOT NULL DEFAULT (datetime('now')),
-                FOREIGN KEY(workspace_id) REFERENCES workspaces(id)
-            );
-            CREATE TABLE IF NOT EXISTS meetings (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                email TEXT NOT NULL,
-                company TEXT,
-                notes TEXT,
-                meet_date TEXT NOT NULL,
-                meet_time TEXT NOT NULL,
-                timezone TEXT,
-                location TEXT DEFAULT 'Google Meet',
-                created_at TEXT NOT NULL DEFAULT (datetime('now'))
-            );
-            """
-        )
+        if USE_PG:
+            _init_pg(conn)
+        else:
+            _init_sqlite(conn)
         _migrate(conn)
+    backend = "postgres" if USE_PG else f"sqlite:{DB_PATH}"
+    print(f"rcb db ready ({backend})")
 
 
-def _migrate(conn: sqlite3.Connection) -> None:
-    cols = {r[1] for r in conn.execute("PRAGMA table_info(users)").fetchall()}
+def _init_sqlite(conn) -> None:
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS workspaces (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            storage_used INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT NOT NULL UNIQUE,
+            name TEXT NOT NULL,
+            company TEXT NOT NULL DEFAULT '',
+            password_hash BLOB NOT NULL,
+            plan TEXT NOT NULL DEFAULT 'Silver',
+            credits INTEGER NOT NULL DEFAULT 360,
+            workspace_id INTEGER,
+            role TEXT NOT NULL DEFAULT 'admin',
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY(workspace_id) REFERENCES workspaces(id)
+        );
+
+        CREATE TABLE IF NOT EXISTS api_keys (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            key_hash TEXT NOT NULL UNIQUE,
+            key_prefix TEXT NOT NULL,
+            label TEXT NOT NULL DEFAULT 'default',
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        );
+
+        CREATE TABLE IF NOT EXISTS payments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            stripe_session_id TEXT UNIQUE,
+            plan TEXT,
+            credits_added INTEGER NOT NULL DEFAULT 0,
+            amount INTEGER NOT NULL DEFAULT 0,
+            status TEXT NOT NULL DEFAULT 'pending',
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        );
+
+        CREATE TABLE IF NOT EXISTS process_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            mode TEXT,
+            credits_used INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS invites (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            workspace_id INTEGER NOT NULL,
+            email TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'editor',
+            token TEXT NOT NULL UNIQUE,
+            invited_by INTEGER NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY(workspace_id) REFERENCES workspaces(id)
+        );
+
+        CREATE TABLE IF NOT EXISTS backdrops (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            workspace_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            filename TEXT NOT NULL,
+            created_by INTEGER,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY(workspace_id) REFERENCES workspaces(id)
+        );
+
+        CREATE TABLE IF NOT EXISTS adverts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            workspace_id INTEGER NOT NULL,
+            user_id INTEGER,
+            filename TEXT NOT NULL,
+            original_name TEXT,
+            bytes INTEGER NOT NULL DEFAULT 0,
+            mode TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY(workspace_id) REFERENCES workspaces(id)
+        );
+        CREATE TABLE IF NOT EXISTS meetings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            email TEXT NOT NULL,
+            company TEXT,
+            notes TEXT,
+            meet_date TEXT NOT NULL,
+            meet_time TEXT NOT NULL,
+            timezone TEXT,
+            location TEXT DEFAULT 'Google Meet',
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        """
+    )
+
+
+def _init_pg(conn) -> None:
+    stmts = [
+        """
+        CREATE TABLE IF NOT EXISTS workspaces (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL,
+            storage_used INTEGER NOT NULL DEFAULT 0,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            email TEXT NOT NULL UNIQUE,
+            name TEXT NOT NULL,
+            company TEXT NOT NULL DEFAULT '',
+            password_hash BYTEA NOT NULL,
+            plan TEXT NOT NULL DEFAULT 'Silver',
+            credits INTEGER NOT NULL DEFAULT 360,
+            workspace_id INTEGER REFERENCES workspaces(id),
+            role TEXT NOT NULL DEFAULT 'admin',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS api_keys (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            key_hash TEXT NOT NULL UNIQUE,
+            key_prefix TEXT NOT NULL,
+            label TEXT NOT NULL DEFAULT 'default',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS payments (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id),
+            stripe_session_id TEXT UNIQUE,
+            plan TEXT,
+            credits_added INTEGER NOT NULL DEFAULT 0,
+            amount INTEGER NOT NULL DEFAULT 0,
+            status TEXT NOT NULL DEFAULT 'pending',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS process_log (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER,
+            mode TEXT,
+            credits_used INTEGER NOT NULL DEFAULT 1,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS invites (
+            id SERIAL PRIMARY KEY,
+            workspace_id INTEGER NOT NULL REFERENCES workspaces(id),
+            email TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'editor',
+            token TEXT NOT NULL UNIQUE,
+            invited_by INTEGER NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS backdrops (
+            id SERIAL PRIMARY KEY,
+            workspace_id INTEGER NOT NULL REFERENCES workspaces(id),
+            name TEXT NOT NULL,
+            filename TEXT NOT NULL,
+            created_by INTEGER,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS adverts (
+            id SERIAL PRIMARY KEY,
+            workspace_id INTEGER NOT NULL REFERENCES workspaces(id),
+            user_id INTEGER,
+            filename TEXT NOT NULL,
+            original_name TEXT,
+            bytes INTEGER NOT NULL DEFAULT 0,
+            mode TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS meetings (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL,
+            email TEXT NOT NULL,
+            company TEXT,
+            notes TEXT,
+            meet_date TEXT NOT NULL,
+            meet_time TEXT NOT NULL,
+            timezone TEXT,
+            location TEXT DEFAULT 'Google Meet',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+        """,
+    ]
+    for stmt in stmts:
+        conn.execute(stmt)
+
+
+def _migrate(conn) -> None:
+    if USE_PG:
+        cols = {
+            r["column_name"]
+            for r in conn.execute(
+                """
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = 'users'
+                """
+            ).fetchall()
+        }
+    else:
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(users)").fetchall()}
     if "workspace_id" not in cols:
-        conn.execute("ALTER TABLE users ADD COLUMN workspace_id INTEGER")
+        conn.execute(_q("ALTER TABLE users ADD COLUMN workspace_id INTEGER"))
     if "role" not in cols:
-        conn.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'admin'")
-    # Backfill workspaces for existing users
+        conn.execute(
+            _q("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'admin'")
+        )
     rows = conn.execute(
-        "SELECT id, company, name FROM users WHERE workspace_id IS NULL"
+        _q("SELECT id, company, name FROM users WHERE workspace_id IS NULL")
     ).fetchall()
     for row in rows:
+        row = _row(row)
         cur = conn.execute(
-            "INSERT INTO workspaces (name) VALUES (?)",
+            _q("INSERT INTO workspaces (name) VALUES (?) RETURNING id"),
             (row["company"] or row["name"] or "Workspace",),
         )
+        wid = _insert_id(cur)
         conn.execute(
-            "UPDATE users SET workspace_id = ?, role = 'admin' WHERE id = ?",
-            (cur.lastrowid, row["id"]),
+            _q("UPDATE users SET workspace_id = ?, role = 'admin' WHERE id = ?"),
+            (wid, row["id"]),
         )
+
+
+class _ConnProxy:
+    """Normalize ? placeholders for Postgres; keep SQLite as-is."""
+
+    def __init__(self, conn: Any):
+        self._conn = conn
+
+    def execute(self, sql: str, params: Any = ()):
+        return self._conn.execute(_q(sql), params)
+
+    def executescript(self, script: str):
+        return self._conn.executescript(script)
+
+    def __getattr__(self, name: str):
+        return getattr(self._conn, name)
 
 
 @contextmanager
-def connect():
-    conn = sqlite3.connect(str(DB_PATH), check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    try:
-        yield conn
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
+def connect() -> Iterator[Any]:
+    if USE_PG:
+        import psycopg
+        from psycopg.rows import dict_row
+
+        raw = psycopg.connect(DATABASE_URL, row_factory=dict_row)
+        conn = _ConnProxy(raw)
+        try:
+            yield conn
+            raw.commit()
+        except Exception:
+            raw.rollback()
+            raise
+        finally:
+            raw.close()
+    else:
+        raw = sqlite3.connect(str(DB_PATH), check_same_thread=False)
+        raw.row_factory = sqlite3.Row
+        conn = _ConnProxy(raw)
+        try:
+            yield conn
+            raw.commit()
+        except Exception:
+            raw.rollback()
+            raise
+        finally:
+            raw.close()
 
 
 def _hash_key(raw: str) -> str:
@@ -183,16 +395,22 @@ def _hash_key(raw: str) -> str:
 
 def create_user(email: str, name: str, company: str, password_hash: bytes, plan: str) -> dict:
     credits = PLAN_CREDITS.get(plan, 360)
+    # Normalize hash to raw bytes (bcrypt); Postgres BYTEA / SQLite BLOB
+    if isinstance(password_hash, str):
+        password_hash = password_hash.encode("utf-8")
+    elif isinstance(password_hash, memoryview):
+        password_hash = password_hash.tobytes()
     with connect() as conn:
         cur = conn.execute(
-            "INSERT INTO workspaces (name) VALUES (?)",
+            "INSERT INTO workspaces (name) VALUES (?) RETURNING id",
             (company.strip() or name.strip(),),
         )
-        workspace_id = cur.lastrowid
+        workspace_id = _insert_id(cur)
         cur = conn.execute(
             """
             INSERT INTO users (email, name, company, password_hash, plan, credits, workspace_id, role)
             VALUES (?, ?, ?, ?, ?, ?, ?, 'admin')
+            RETURNING id
             """,
             (
                 email.lower().strip(),
@@ -204,14 +422,14 @@ def create_user(email: str, name: str, company: str, password_hash: bytes, plan:
                 workspace_id,
             ),
         )
-        user_id = cur.lastrowid
+        user_id = _insert_id(cur)
         raw_key = f"rcb_{secrets.token_urlsafe(24)}"
         conn.execute(
             "INSERT INTO api_keys (user_id, key_hash, key_prefix, label) VALUES (?, ?, ?, ?)",
             (user_id, _hash_key(raw_key), raw_key[:12], "default"),
         )
         row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
-        user = dict(row)
+        user = _row(row)
         user["api_key"] = raw_key
         return user
 
@@ -221,13 +439,13 @@ def get_user_by_email(email: str):
         row = conn.execute(
             "SELECT * FROM users WHERE email = ?", (email.lower().strip(),)
         ).fetchone()
-        return dict(row) if row else None
+        return _row(row)
 
 
 def get_user_by_id(user_id: int):
     with connect() as conn:
         row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
-        return dict(row) if row else None
+        return _row(row)
 
 
 def public_user(user: dict) -> dict:
@@ -253,7 +471,7 @@ def get_workspace(workspace_id: int | None):
         return None
     with connect() as conn:
         row = conn.execute("SELECT * FROM workspaces WHERE id = ?", (workspace_id,)).fetchone()
-        return dict(row) if row else None
+        return _row(row)
 
 
 def set_credits(user_id: int, credits: int) -> None:
@@ -313,7 +531,7 @@ def list_api_keys(user_id: int) -> list[dict]:
             "SELECT id, key_prefix, label, created_at FROM api_keys WHERE user_id = ? ORDER BY id DESC",
             (user_id,),
         ).fetchall()
-        return [dict(r) for r in rows]
+        return [_row(r) for r in rows]
 
 
 def get_user_by_api_key(raw_key: str):
@@ -326,18 +544,28 @@ def get_user_by_api_key(raw_key: str):
             """,
             (_hash_key(raw_key),),
         ).fetchone()
-        return dict(row) if row else None
+        return _row(row)
 
 
 def save_payment(user_id: int, session_id: str, plan: str, credits: int, amount: int) -> None:
     with connect() as conn:
-        conn.execute(
-            """
-            INSERT OR IGNORE INTO payments (user_id, stripe_session_id, plan, credits_added, amount, status)
-            VALUES (?, ?, ?, ?, ?, 'pending')
-            """,
-            (user_id, session_id, plan, credits, amount),
-        )
+        if USE_PG:
+            conn.execute(
+                """
+                INSERT INTO payments (user_id, stripe_session_id, plan, credits_added, amount, status)
+                VALUES (?, ?, ?, ?, ?, 'pending')
+                ON CONFLICT (stripe_session_id) DO NOTHING
+                """,
+                (user_id, session_id, plan, credits, amount),
+            )
+        else:
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO payments (user_id, stripe_session_id, plan, credits_added, amount, status)
+                VALUES (?, ?, ?, ?, ?, 'pending')
+                """,
+                (user_id, session_id, plan, credits, amount),
+            )
 
 
 def complete_payment(session_id: str) -> dict | None:
@@ -347,8 +575,9 @@ def complete_payment(session_id: str) -> dict | None:
         ).fetchone()
         if not row:
             return None
+        row = _row(row)
         if row["status"] == "paid":
-            return dict(row)
+            return row
         conn.execute(
             "UPDATE payments SET status = 'paid' WHERE stripe_session_id = ?",
             (session_id,),
@@ -357,7 +586,7 @@ def complete_payment(session_id: str) -> dict | None:
             "UPDATE users SET credits = credits + ?, plan = ? WHERE id = ?",
             (row["credits_added"], row["plan"], row["user_id"]),
         )
-        return dict(row)
+        return row
 
 
 # ── Team invites ──────────────────────────────────────────────
@@ -374,7 +603,7 @@ def create_invite(workspace_id: int, email: str, role: str, invited_by: int) -> 
             (workspace_id, email.lower().strip(), role, token, invited_by),
         )
         row = conn.execute("SELECT * FROM invites WHERE token = ?", (token,)).fetchone()
-        return dict(row)
+        return _row(row)
 
 
 def list_invites(workspace_id: int) -> list[dict]:
@@ -386,7 +615,7 @@ def list_invites(workspace_id: int) -> list[dict]:
             """,
             (workspace_id,),
         ).fetchall()
-        return [dict(r) for r in rows]
+        return [_row(r) for r in rows]
 
 
 def list_team(workspace_id: int) -> list[dict]:
@@ -398,18 +627,23 @@ def list_team(workspace_id: int) -> list[dict]:
             """,
             (workspace_id,),
         ).fetchall()
-        return [dict(r) for r in rows]
+        return [_row(r) for r in rows]
 
 
 def get_invite_by_token(token: str):
     with connect() as conn:
         row = conn.execute("SELECT * FROM invites WHERE token = ?", (token,)).fetchone()
-        return dict(row) if row else None
+        return _row(row)
 
 
 def accept_invite(token: str, name: str, password_hash: bytes) -> dict:
+    if isinstance(password_hash, str):
+        password_hash = password_hash.encode("utf-8")
+    elif isinstance(password_hash, memoryview):
+        password_hash = password_hash.tobytes()
     with connect() as conn:
         inv = conn.execute("SELECT * FROM invites WHERE token = ?", (token,)).fetchone()
+        inv = _row(inv)
         if not inv or inv["status"] != "pending":
             raise ValueError("Invalid or used invite")
         existing = conn.execute(
@@ -422,11 +656,13 @@ def accept_invite(token: str, name: str, password_hash: bytes) -> dict:
             "SELECT plan, credits FROM users WHERE workspace_id = ? AND role = 'admin' ORDER BY id LIMIT 1",
             (inv["workspace_id"],),
         ).fetchone()
+        owner = _row(owner)
         plan = owner["plan"] if owner else "Silver"
         cur = conn.execute(
             """
             INSERT INTO users (email, name, company, password_hash, plan, credits, workspace_id, role)
             VALUES (?, ?, ?, ?, ?, 0, ?, ?)
+            RETURNING id
             """,
             (
                 inv["email"],
@@ -438,12 +674,13 @@ def accept_invite(token: str, name: str, password_hash: bytes) -> dict:
                 inv["role"],
             ),
         )
+        uid = _insert_id(cur)
         conn.execute(
             "UPDATE invites SET status = 'accepted' WHERE id = ?", (inv["id"],)
         )
         # Editors use workspace owner's credits pool: mirror owner credits on process via workspace owner
-        row = conn.execute("SELECT * FROM users WHERE id = ?", (cur.lastrowid,)).fetchone()
-        return dict(row)
+        row = conn.execute("SELECT * FROM users WHERE id = ?", (uid,)).fetchone()
+        return _row(row)
 
 
 def workspace_owner(workspace_id: int):
@@ -452,7 +689,7 @@ def workspace_owner(workspace_id: int):
             "SELECT * FROM users WHERE workspace_id = ? AND role = 'admin' ORDER BY id LIMIT 1",
             (workspace_id,),
         ).fetchone()
-        return dict(row) if row else None
+        return _row(row)
 
 
 # ── Custom backdrops ──────────────────────────────────────────
@@ -470,11 +707,13 @@ def save_backdrop(workspace_id: int, user_id: int, name: str, data: bytes) -> di
             """
             INSERT INTO backdrops (workspace_id, name, filename, created_by)
             VALUES (?, ?, ?, ?)
+            RETURNING id
             """,
             (workspace_id, name.strip()[:80], safe, user_id),
         )
-        row = conn.execute("SELECT * FROM backdrops WHERE id = ?", (cur.lastrowid,)).fetchone()
-        return dict(row)
+        bid_id = _insert_id(cur)
+        row = conn.execute("SELECT * FROM backdrops WHERE id = ?", (bid_id,)).fetchone()
+        return _row(row)
 
 
 def list_backdrops(workspace_id: int) -> list[dict]:
@@ -483,7 +722,7 @@ def list_backdrops(workspace_id: int) -> list[dict]:
             "SELECT id, name, filename, created_at FROM backdrops WHERE workspace_id = ? ORDER BY id DESC",
             (workspace_id,),
         ).fetchall()
-        return [dict(r) for r in rows]
+        return [_row(r) for r in rows]
 
 
 def get_backdrop(workspace_id: int, backdrop_id: int):
@@ -492,7 +731,7 @@ def get_backdrop(workspace_id: int, backdrop_id: int):
             "SELECT * FROM backdrops WHERE id = ? AND workspace_id = ?",
             (backdrop_id, workspace_id),
         ).fetchone()
-        return dict(row) if row else None
+        return _row(row)
 
 
 def backdrop_path(workspace_id: int, filename: str) -> Path:
@@ -541,15 +780,17 @@ def save_advert(
             """
             INSERT INTO adverts (workspace_id, user_id, filename, original_name, bytes, mode)
             VALUES (?, ?, ?, ?, ?, ?)
+            RETURNING id
             """,
             (workspace_id, user_id, safe, original_name, len(data), mode),
         )
+        advert_id = _insert_id(cur)
         conn.execute(
             "UPDATE workspaces SET storage_used = storage_used + ? WHERE id = ?",
             (len(data), workspace_id),
         )
-        row = conn.execute("SELECT * FROM adverts WHERE id = ?", (cur.lastrowid,)).fetchone()
-        return dict(row)
+        row = conn.execute("SELECT * FROM adverts WHERE id = ?", (advert_id,)).fetchone()
+        return _row(row)
 
 
 def list_adverts(workspace_id: int, limit: int = 50) -> list[dict]:
@@ -561,7 +802,7 @@ def list_adverts(workspace_id: int, limit: int = 50) -> list[dict]:
             """,
             (workspace_id, limit),
         ).fetchall()
-        return [dict(r) for r in rows]
+        return [_row(r) for r in rows]
 
 
 def get_advert(workspace_id: int, advert_id: int):
@@ -570,7 +811,7 @@ def get_advert(workspace_id: int, advert_id: int):
             "SELECT * FROM adverts WHERE id = ? AND workspace_id = ?",
             (advert_id, workspace_id),
         ).fetchone()
-        return dict(row) if row else None
+        return _row(row)
 
 
 def advert_path(workspace_id: int, filename: str) -> Path:
@@ -589,10 +830,16 @@ def delete_advert(workspace_id: int, advert_id: int) -> bool:
             "DELETE FROM adverts WHERE id = ? AND workspace_id = ?",
             (advert_id, workspace_id),
         )
-        conn.execute(
-            "UPDATE workspaces SET storage_used = MAX(0, storage_used - ?) WHERE id = ?",
-            (row["bytes"], workspace_id),
-        )
+        if USE_PG:
+            conn.execute(
+                "UPDATE workspaces SET storage_used = GREATEST(0, storage_used - ?) WHERE id = ?",
+                (row["bytes"], workspace_id),
+            )
+        else:
+            conn.execute(
+                "UPDATE workspaces SET storage_used = MAX(0, storage_used - ?) WHERE id = ?",
+                (row["bytes"], workspace_id),
+            )
     return True
 
 
@@ -607,31 +854,34 @@ def save_meeting(
     location: str = "Google Meet",
 ) -> dict:
     with connect() as conn:
-        # Ensure table exists on older databases
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS meetings (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                email TEXT NOT NULL,
-                company TEXT,
-                notes TEXT,
-                meet_date TEXT NOT NULL,
-                meet_time TEXT NOT NULL,
-                timezone TEXT,
-                location TEXT DEFAULT 'Google Meet',
-                created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        if not USE_PG:
+            # Ensure table exists on older databases
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS meetings (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    email TEXT NOT NULL,
+                    company TEXT,
+                    notes TEXT,
+                    meet_date TEXT NOT NULL,
+                    meet_time TEXT NOT NULL,
+                    timezone TEXT,
+                    location TEXT DEFAULT 'Google Meet',
+                    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+                )
+                """
             )
-            """
-        )
         cur = conn.execute(
             """
             INSERT INTO meetings (name, email, company, notes, meet_date, meet_time, timezone, location)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            RETURNING id
             """,
             (name, email, company, notes, meet_date, meet_time, timezone, location),
         )
+        mid = _insert_id(cur)
         row = conn.execute(
-            "SELECT * FROM meetings WHERE id = ?", (cur.lastrowid,)
+            "SELECT * FROM meetings WHERE id = ?", (mid,)
         ).fetchone()
-        return dict(row) if row else {"id": cur.lastrowid}
+        return _row(row) if row else {"id": mid}

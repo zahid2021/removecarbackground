@@ -2,6 +2,12 @@
 # Custom domain removecarbackground.com → attach to the static site in Dashboard,
 # then point DNS (see README / DOMAIN.md).
 
+databases:
+  - name: rcb-db
+    plan: free
+    databaseName: rcb
+    user: rcb
+
 services:
   - type: web
     name: removecarbackground
@@ -15,6 +21,10 @@ services:
         value: "3.12.8"
       - key: JWT_SECRET
         generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: rcb-db
+          property: connectionString
       - key: PUBLIC_BASE_URL
         value: https://removecarbackground.com
       - key: ALLOW_GUEST_PROCESS
