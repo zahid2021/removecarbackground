@@ -192,54 +192,39 @@
 
   processBtn.addEventListener("click", async function () {
     if (!state.file) return;
+    if (!window.RCB_BG || !window.RCB_BG.processFile) {
+      setStatus("Background engine missing — refresh the page");
+      return;
+    }
     processBtn.disabled = true;
     downloadBtn.disabled = true;
     var started = Date.now();
-    setStatus("Processing… first run loads the AI model (can take 1–2 min on free hosting)");
+    setStatus("Loading AI in your browser (first time only)…");
     mockBadge.hidden = false;
     mockBadge.textContent =
       (state.mode === "half" ? "HALF-CUT" : "FULL-CUT") + " · WORKING";
 
     var tick = setInterval(function () {
       var s = Math.round((Date.now() - started) / 1000);
-      setStatus(
-        "Still working… " +
-          s +
-          "s (normal on cold start — do not refresh)"
-      );
+      setStatus("Working in browser… " + s + "s — do not close this tab");
     }, 1000);
 
-    var fd = new FormData();
-    fd.append("file", state.file);
-    fd.append("mode", state.mode);
-    fd.append("backdrop", backdrop.value);
-    fd.append("plate", state.plate);
-    fd.append("plate_text", (plateText && plateText.value) || "PRIVATE");
-    fd.append("upscale", upscale.value);
-
-    var headers = {};
-    var t = token();
-    if (t) headers.Authorization = "Bearer " + t;
-
     try {
-      var res = await fetch(API, { method: "POST", body: fd, headers: headers });
-      if (!res.ok) {
-        var err = await res.json().catch(function () {
-          return { detail: "Process failed" };
-        });
-        throw new Error(err.detail || "Process failed");
-      }
-      var remaining = res.headers.get("X-Credits-Remaining");
-      if (remaining && creditsChip) {
-        creditsChip.hidden = false;
-        creditsChip.textContent = remaining + " credits";
-        var u = window.RCB && window.RCB.readUser();
-        if (u) {
-          u.credits = Number(remaining);
-          window.RCB.saveSession(t, u);
+      var blob = await window.RCB_BG.processFile(
+        state.file,
+        {
+          mode: state.mode,
+          backdrop: backdrop.value,
+          plate: state.plate,
+          plateText: (plateText && plateText.value) || "PRIVATE",
+          upscale: upscale.value,
+        },
+        function (key, current, total) {
+          if (!total) return;
+          var pct = Math.round((current / total) * 100);
+          setStatus("AI model: " + key + " " + pct + "%");
         }
-      }
-      var blob = await res.blob();
+      );
       revoke(state.resultUrl);
       state.resultUrl = URL.createObjectURL(blob);
       preview.src = state.resultUrl;
@@ -258,7 +243,7 @@
         "</div><span class=\"status-pill\">Processed</span></div></div>";
     } catch (err) {
       mockBadge.textContent = "ERROR";
-      setStatus(err.message || "Processing failed — is the API server running?");
+      setStatus(err.message || "Processing failed — try Chrome/Edge and refresh");
     } finally {
       clearInterval(tick);
       enableActions(!!state.file);
