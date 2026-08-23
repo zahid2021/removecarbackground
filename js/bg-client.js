@@ -34,11 +34,11 @@
   function configBase() {
     return {
       publicPath: PUBLIC_PATH,
-      // quantized = fastest (~1s after model cached)
       model: "isnet_quint8",
       device: "gpu",
-      proxyToWorker: true,
-      output: { format: "image/png", quality: 0.85 },
+      // Main thread is often faster for a single 512px image
+      proxyToWorker: false,
+      output: { format: "image/png", quality: 0.82 },
     };
   }
 
@@ -60,26 +60,26 @@
     });
   }
 
-  /** Shrink before AI — big win for speed (target ~1s after warmup). */
+  /** Shrink before AI — 512px target keeps process near ~5–15s after model ready. */
   async function downscaleBlob(fileOrBlob, maxSide) {
-    maxSide = maxSide || 768;
+    maxSide = maxSide || 512;
     var img = await loadImage(fileOrBlob);
     var w = img.naturalWidth;
     var h = img.naturalHeight;
     var scale = Math.min(1, maxSide / Math.max(w, h));
-    if (scale >= 1) {
-      if (fileOrBlob instanceof Blob) return fileOrBlob;
-      return fileOrBlob;
-    }
     var canvas = document.createElement("canvas");
     canvas.width = Math.max(1, Math.round(w * scale));
     canvas.height = Math.max(1, Math.round(h * scale));
     var ctx = canvas.getContext("2d");
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     return new Promise(function (resolve) {
-      canvas.toBlob(function (b) {
-        resolve(b || fileOrBlob);
-      }, "image/jpeg", 0.92);
+      canvas.toBlob(
+        function (b) {
+          resolve(b || fileOrBlob);
+        },
+        "image/jpeg",
+        0.85
+      );
     });
   }
 
@@ -120,7 +120,7 @@
       if (typeof onProgress === "function" && total) onProgress(key, current, total);
     };
 
-    var input = await downscaleBlob(fileOrBlob, 768);
+    var input = await downscaleBlob(fileOrBlob, 512);
     var blob = await removeBackground(input, cfg);
     ready = true;
     return blob;

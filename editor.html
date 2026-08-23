@@ -14,6 +14,14 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/styles.css?v=39" />
+  <link rel="preconnect" href="https://staticimgly.com" crossorigin />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link
+    rel="prefetch"
+    href="https://staticimgly.com/@imgly/background-removal-data/1.5.5/dist/"
+    as="fetch"
+    crossorigin
+  />
 </head>
 <body class="editor-page">
   <div class="bg-mesh" aria-hidden="true"></div>
@@ -22,7 +30,7 @@
     <div class="wrap nav-inner">
       <a class="logo" href="index.html"><img class="logo-mark" src="/icons/logo-mark.png" alt="" width="80" height="80" /><span class="logo-text">Remove<span>Car</span>Background</span></a>
       <ul class="nav-links">
-        <li><a href="transformer.html">Batch</a></li>
+        <li><a href="transformer.html">Multiple images</a></li>
         <li><a href="account.html">Account</a></li>
         <li><span class="credits-chip" id="creditsChip" hidden></span></li>
         <li><a class="nav-cta" href="editor.html">Editor</a></li>
@@ -72,7 +80,9 @@
       </div>
 
       <div class="side-note">
-        AI runs <strong>in your browser</strong> — no stuck server wait. First run downloads the model once (~30–60s), then each car is fast. Batch: up to 20 images → ZIP.
+        <strong>1 photo:</strong> Process below (after “AI ready”, usually under ~15s).<br />
+        <strong>Multiple photos:</strong>
+        <a href="transformer.html">Batch — remove many backgrounds → ZIP</a>
       </div>
     </aside>
 
@@ -121,14 +131,16 @@
           </div>
         </div>
       </div>
-      <a class="btn btn-ghost" href="transformer.html" style="width:100%;margin-top:8px">Batch transformer →</a>
+      <a class="btn btn-ghost" href="transformer.html" style="width:100%;margin-top:8px"
+        >Remove multiple images background →</a
+      >
     </aside>
   </main>
 
   <script src="js/config.js"></script>
   <script src="js/main.js"></script>
   <script src="js/auth.js"></script>
-  <script src="js/bg-client.js?v=41"></script>
-  <script src="js/editor.js?v=41"></script>
+  <script src="js/bg-client.js?v=42"></script>
+  <script src="js/editor.js?v=42"></script>
 </body>
 </html>

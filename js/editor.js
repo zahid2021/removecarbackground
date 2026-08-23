@@ -53,8 +53,8 @@
       if (!total) return;
       setStatus("Preparing AI… " + Math.round((current / total) * 100) + "%");
     })
-      .then(function () {
-        setStatus("AI ready — upload a car photo (usually ~1s after this)");
+        .then(function () {
+        setStatus("AI ready — Process usually finishes in ~15s or less");
       })
       .catch(function () {
         setStatus("Upload a car photo — AI loads on first Process");
