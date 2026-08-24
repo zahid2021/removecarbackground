@@ -54,7 +54,7 @@
       setStatus("Preparing AI… " + Math.round((current / total) * 100) + "%");
     })
         .then(function () {
-        setStatus("AI ready — Process usually finishes in ~15s or less");
+        setStatus("AI ready (high quality) — Process may take ~20–40s");
       })
       .catch(function () {
         setStatus("Upload a car photo — AI loads on first Process");

@@ -1,5 +1,5 @@
 /**
- * Browser-side background removal — fast path for the live website.
+ * Browser-side background removal — quality-first for dealership photos.
  * Does NOT use the Render Python API (that OOMs on free plan).
  */
 (function (global) {
@@ -14,6 +14,9 @@
   var VERSION = "1.5.5";
   var PUBLIC_PATH =
     "https://staticimgly.com/@imgly/background-removal-data/" + VERSION + "/dist/";
+  // Quality over speed — quint8@512 caused green tree ghosts + jagged edges
+  var MODEL = "isnet";
+  var PROCESS_MAX_SIDE = 1280;
   var libPromise = null;
   var warmPromise = null;
   var ready = false;
@@ -34,11 +37,10 @@
   function configBase() {
     return {
       publicPath: PUBLIC_PATH,
-      model: "isnet_quint8",
+      model: MODEL,
       device: "gpu",
-      // Main thread is often faster for a single 512px image
-      proxyToWorker: false,
-      output: { format: "image/png", quality: 0.82 },
+      proxyToWorker: true,
+      output: { format: "image/png", quality: 1 },
     };
   }
 
@@ -60,27 +62,175 @@
     });
   }
 
-  /** Shrink before AI — 512px target keeps process near ~5–15s after model ready. */
-  async function downscaleBlob(fileOrBlob, maxSide) {
-    maxSide = maxSide || 512;
+  function canvasFromImage(img, w, h) {
+    var canvas = document.createElement("canvas");
+    canvas.width = w || img.naturalWidth;
+    canvas.height = h || img.naturalHeight;
+    var ctx = canvas.getContext("2d", { willReadFrequently: true });
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    return canvas;
+  }
+
+  async function blobFromCanvas(canvas, type, quality) {
+    return new Promise(function (resolve) {
+      canvas.toBlob(function (b) {
+        resolve(b);
+      }, type || "image/png", quality);
+    });
+  }
+
+  /** Resize keeping aspect — PNG to avoid JPEG block artifacts before AI. */
+  async function resizeBlob(fileOrBlob, maxSide) {
+    maxSide = maxSide || PROCESS_MAX_SIDE;
     var img = await loadImage(fileOrBlob);
     var w = img.naturalWidth;
     var h = img.naturalHeight;
     var scale = Math.min(1, maxSide / Math.max(w, h));
-    var canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(w * scale));
-    canvas.height = Math.max(1, Math.round(h * scale));
-    var ctx = canvas.getContext("2d");
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    return new Promise(function (resolve) {
-      canvas.toBlob(
-        function (b) {
-          resolve(b || fileOrBlob);
-        },
-        "image/jpeg",
-        0.85
-      );
-    });
+    if (scale >= 0.999) {
+      if (fileOrBlob instanceof Blob) return fileOrBlob;
+      return blobFromCanvas(canvasFromImage(img), "image/png");
+    }
+    var canvas = canvasFromImage(
+      img,
+      Math.max(1, Math.round(w * scale)),
+      Math.max(1, Math.round(h * scale))
+    );
+    return blobFromCanvas(canvas, "image/png");
+  }
+
+  /**
+   * Clean mask: kill floating debris, green tree fringe, harden car silhouette.
+   */
+  function refineAlphaData(data, w, h) {
+    var i;
+    var a;
+    var r;
+    var g;
+    var b;
+    var n = w * h;
+
+    // Pass 1 — hard-kill weak noise + green/cyan spill (trees/sky leftovers)
+    for (i = 0; i < n; i++) {
+      var o = i * 4;
+      r = data[o];
+      g = data[o + 1];
+      b = data[o + 2];
+      a = data[o + 3];
+
+      if (a < 28) {
+        data[o + 3] = 0;
+        continue;
+      }
+
+      // Semi-transparent fringe that is green-dominant → background junk
+      var greenBias = g - Math.max(r, b);
+      if (a < 210 && greenBias > 18) {
+        data[o + 3] = 0;
+        continue;
+      }
+      // Bright sky/leaf fragments (high G+B, not car paint)
+      if (a < 160 && g > 90 && b > 70 && r < g - 15 && greenBias > 8) {
+        data[o + 3] = 0;
+        continue;
+      }
+
+      // Despill remaining edge pixels (pull green toward red/blue)
+      if (a < 245 && greenBias > 8) {
+        var pull = Math.min(greenBias, 40);
+        data[o + 1] = Math.max(0, g - pull);
+      }
+
+      // Harden alpha for a clean dealer cut
+      if (data[o + 3] > 0 && data[o + 3] < 90) data[o + 3] = 0;
+      else if (data[o + 3] >= 90 && data[o + 3] < 180)
+        data[o + 3] = Math.round((data[o + 3] - 90) * (255 / 90));
+      else if (data[o + 3] >= 180) data[o + 3] = 255;
+    }
+
+    // Pass 2 — remove tiny floating islands (3x3: keep only if enough opaque neighbors)
+    var copy = new Uint8ClampedArray(data);
+    for (var y = 1; y < h - 1; y++) {
+      for (var x = 1; x < w - 1; x++) {
+        var idx = (y * w + x) * 4 + 3;
+        if (copy[idx] < 128) continue;
+        var solid = 0;
+        for (var dy = -1; dy <= 1; dy++) {
+          for (var dx = -1; dx <= 1; dx++) {
+            if (copy[((y + dy) * w + (x + dx)) * 4 + 3] >= 128) solid++;
+          }
+        }
+        if (solid <= 3) data[idx] = 0;
+      }
+    }
+
+    // Pass 3 — light edge feather (1px) so tires/body aren't jagged
+    copy = new Uint8ClampedArray(data);
+    for (y = 1; y < h - 1; y++) {
+      for (x = 1; x < w - 1; x++) {
+        idx = (y * w + x) * 4 + 3;
+        var c0 = copy[idx];
+        if (c0 === 0 || c0 === 255) continue;
+        var sum = 0;
+        var cnt = 0;
+        for (dy = -1; dy <= 1; dy++) {
+          for (dx = -1; dx <= 1; dx++) {
+            sum += copy[((y + dy) * w + (x + dx)) * 4 + 3];
+            cnt++;
+          }
+        }
+        data[idx] = Math.round(sum / cnt);
+      }
+    }
+  }
+
+  async function refineCutoutBlob(cutoutBlob) {
+    var img = await loadImage(cutoutBlob);
+    var canvas = canvasFromImage(img);
+    var ctx = canvas.getContext("2d", { willReadFrequently: true });
+    var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    refineAlphaData(imageData.data, canvas.width, canvas.height);
+    ctx.putImageData(imageData, 0, 0);
+    return blobFromCanvas(canvas, "image/png");
+  }
+
+  /**
+   * Apply refined AI alpha onto the ORIGINAL full-resolution photo
+   * so the car stays sharp (not the 1024 AI pass).
+   */
+  async function applyMaskToOriginal(originalFile, cutoutBlob) {
+    var orig = await loadImage(originalFile);
+    var cut = await loadImage(cutoutBlob);
+    var w = orig.naturalWidth;
+    var h = orig.naturalHeight;
+
+    var maskCanvas = document.createElement("canvas");
+    maskCanvas.width = w;
+    maskCanvas.height = h;
+    var mctx = maskCanvas.getContext("2d", { willReadFrequently: true });
+    mctx.imageSmoothingEnabled = true;
+    mctx.imageSmoothingQuality = "high";
+    mctx.drawImage(cut, 0, 0, w, h);
+    var maskData = mctx.getImageData(0, 0, w, h);
+    refineAlphaData(maskData.data, w, h);
+
+    var out = document.createElement("canvas");
+    out.width = w;
+    out.height = h;
+    var octx = out.getContext("2d", { willReadFrequently: true });
+    octx.drawImage(orig, 0, 0, w, h);
+    var outData = octx.getImageData(0, 0, w, h);
+    var od = outData.data;
+    var md = maskData.data;
+    for (var i = 0; i < od.length; i += 4) {
+      od[i + 3] = md[i + 3];
+      // Edge despill on RGB from original
+      if (od[i + 3] > 0 && od[i + 3] < 250) {
+        var gBias = od[i + 1] - Math.max(od[i], od[i + 2]);
+        if (gBias > 10) od[i + 1] = Math.max(0, od[i + 1] - Math.min(gBias, 35));
+      }
+    }
+    octx.putImageData(outData, 0, 0);
+    return blobFromCanvas(out, "image/png");
   }
 
   async function warmup(onProgress) {
@@ -93,15 +243,13 @@
       if (typeof preload === "function") {
         await preload(cfg);
       } else {
-        // Force model fetch with a tiny canvas
         var c = document.createElement("canvas");
         c.width = 64;
         c.height = 64;
         var tiny = await new Promise(function (resolve) {
           c.toBlob(resolve, "image/png");
         });
-        var removeBackground = mod.removeBackground;
-        await removeBackground(tiny, cfg);
+        await mod.removeBackground(tiny, cfg);
       }
       ready = true;
       if (typeof onProgress === "function") onProgress("download", 1, 1);
@@ -120,10 +268,20 @@
       if (typeof onProgress === "function" && total) onProgress(key, current, total);
     };
 
-    var input = await downscaleBlob(fileOrBlob, 512);
-    var blob = await removeBackground(input, cfg);
+    if (typeof onProgress === "function") onProgress("compute", 0, 1);
+    var input = await resizeBlob(fileOrBlob, PROCESS_MAX_SIDE);
+    var rawCut = await removeBackground(input, cfg);
+    var refined = await refineCutoutBlob(rawCut);
+    // Map clean mask back onto full-resolution original when possible
+    var finalCut = refined;
+    try {
+      finalCut = await applyMaskToOriginal(fileOrBlob, refined);
+    } catch (e) {
+      finalCut = refined;
+    }
     ready = true;
-    return blob;
+    if (typeof onProgress === "function") onProgress("compute", 1, 1);
+    return finalCut;
   }
 
   function coverPlate(ctx, w, h, text) {
@@ -201,12 +359,7 @@
       canvas = up;
     }
 
-    return new Promise(function (resolve, reject) {
-      canvas.toBlob(function (b) {
-        if (b) resolve(b);
-        else reject(new Error("Could not export PNG"));
-      }, "image/png");
-    });
+    return blobFromCanvas(canvas, "image/png");
   }
 
   async function processFile(file, opts, onProgress) {
@@ -224,6 +377,7 @@
 
   global.RCB_BG = {
     COLORS: COLORS,
+    MODEL: MODEL,
     ready: function () {
       return ready;
     },
@@ -233,7 +387,6 @@
     processFile: processFile,
   };
 
-  // Start downloading the AI model as soon as the editor/batch page opens
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", function () {
       warmup().catch(function () {});
