@@ -54,7 +54,7 @@
       setStatus("Preparing AI… " + Math.round((current / total) * 100) + "%");
     })
         .then(function () {
-        setStatus("AI ready — Process ~15s; floating trees auto-cleaned");
+        setStatus("AI ready — Half-Cut / Full-Cut like MotorCut · ~15s");
       })
       .catch(function () {
         setStatus("Upload a car photo — AI loads on first Process");
