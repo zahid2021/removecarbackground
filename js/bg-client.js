@@ -15,8 +15,8 @@
   var PUBLIC_PATH =
     "https://staticimgly.com/@imgly/background-removal-data/" + VERSION + "/dist/";
   var MODEL = "isnet_fp16";
-  var PROCESS_MAX_SIDE = 768;
-  var PROCESS_TIMEOUT_MS = 60000;
+  var PROCESS_MAX_SIDE = 896;
+  var PROCESS_TIMEOUT_MS = 70000;
   var libPromise = null;
   var warmPromise = null;
   var ready = false;
@@ -130,22 +130,20 @@
   }
 
   /**
-   * Safe cleanup on AI-resolution mask only:
-   * - drop tiny floating islands (trees)
-   * - despill green fringe
-   * Never erodes the whole car away.
+   * Dealer cleanup:
+   * 1) keep ONLY the largest blob (car) — drop ALL other islands (trees)
+   * 2) light open to cut thin foliage bridges on the roof
+   * 3) trim roof spikes above the median roof line
    */
   function safeCleanup(data, w, h) {
     var n = w * h;
     var i;
     var o;
-    var a;
 
-    // Soft threshold + green fringe
     for (i = 0; i < n; i++) {
       o = i * 4;
-      a = data[o + 3];
-      if (a < 24) {
+      var a = data[o + 3];
+      if (a < 28) {
         data[o + 3] = 0;
         continue;
       }
@@ -153,25 +151,50 @@
       var g = data[o + 1];
       var b = data[o + 2];
       var greenBias = g - Math.max(r, b);
-      if (a < 190 && greenBias > 18) {
+      if (a < 200 && greenBias > 14) {
         data[o + 3] = 0;
         continue;
       }
-      if (a < 140 && g > 90 && b > 70 && r < g - 15) {
+      if (a < 150 && g > 85 && b > 65 && r < g - 12) {
         data[o + 3] = 0;
         continue;
       }
-      if (greenBias > 8) data[o + 1] = Math.max(0, g - Math.min(greenBias, 25));
-      if (data[o + 3] < 80) data[o + 3] = 0;
-      else if (data[o + 3] < 200)
-        data[o + 3] = Math.round((data[o + 3] - 80) * (255 / 120));
+      if (greenBias > 6) data[o + 1] = Math.max(0, g - Math.min(greenBias, 28));
+      if (data[o + 3] < 90) data[o + 3] = 0;
+      else if (data[o + 3] < 210)
+        data[o + 3] = Math.round((data[o + 3] - 90) * (255 / 120));
       else data[o + 3] = 255;
     }
 
-    // Drop small islands only (keep anything >= 1.5% of frame — the car)
     var labels = new Int32Array(n);
     var solid = new Uint8Array(n);
     for (i = 0; i < n; i++) solid[i] = data[i * 4 + 3] >= 128 ? 1 : 0;
+
+    function erodeMask(src) {
+      var out = new Uint8Array(src);
+      for (var y = 1; y < h - 1; y++) {
+        for (var x = 1; x < w - 1; x++) {
+          var p = y * w + x;
+          if (!src[p]) continue;
+          if (!src[p - 1] || !src[p + 1] || !src[p - w] || !src[p + w]) out[p] = 0;
+        }
+      }
+      return out;
+    }
+    function dilateMask(src) {
+      var out = new Uint8Array(src);
+      for (var y = 1; y < h - 1; y++) {
+        for (var x = 1; x < w - 1; x++) {
+          var p = y * w + x;
+          if (src[p]) continue;
+          if (src[p - 1] || src[p + 1] || src[p - w] || src[p + w]) out[p] = 1;
+        }
+      }
+      return out;
+    }
+
+    // Break thin tree bridges, then grow back after we pick the car
+    var work = erodeMask(solid);
 
     var label = 0;
     var areas = [];
@@ -179,7 +202,7 @@
     var dx = [1, -1, 0, 0];
     var dy = [0, 0, 1, -1];
     for (i = 0; i < n; i++) {
-      if (!solid[i] || labels[i]) continue;
+      if (!work[i] || labels[i]) continue;
       label++;
       var top = 0;
       stack[top++] = i;
@@ -195,17 +218,46 @@
           var ny = py + dy[k];
           if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
           var ni = ny * w + nx;
-          if (!solid[ni] || labels[ni]) continue;
+          if (!work[ni] || labels[ni]) continue;
           labels[ni] = label;
           stack[top++] = ni;
         }
       }
       areas[label] = area;
     }
+    if (label === 0) {
+      // erode wiped everything — fall back to original solid largest
+      labels = new Int32Array(n);
+      work = solid;
+      label = 0;
+      areas = [];
+      for (i = 0; i < n; i++) {
+        if (!work[i] || labels[i]) continue;
+        label++;
+        top = 0;
+        stack[top++] = i;
+        labels[i] = label;
+        area = 0;
+        while (top) {
+          p = stack[--top];
+          area++;
+          px = p % w;
+          py = (p / w) | 0;
+          for (k = 0; k < 4; k++) {
+            nx = px + dx[k];
+            ny = py + dy[k];
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+            ni = ny * w + nx;
+            if (!work[ni] || labels[ni]) continue;
+            labels[ni] = label;
+            stack[top++] = ni;
+          }
+        }
+        areas[label] = area;
+      }
+      if (label === 0) return;
+    }
 
-    if (label === 0) return;
-
-    var minKeep = Math.max(120, Math.floor(n * 0.015));
     var largest = 1;
     var largestA = 0;
     for (var id = 1; id <= label; id++) {
@@ -214,14 +266,100 @@
         largest = id;
       }
     }
-    // Always keep the largest blob (car). Drop only smaller islands.
+
+    var keep = new Uint8Array(n);
     for (i = 0; i < n; i++) {
-      var lab = labels[i];
-      if (!lab) continue;
-      if (lab !== largest && (areas[lab] || 0) < minKeep) {
-        data[i * 4 + 3] = 0;
+      if (labels[i] === largest) keep[i] = 1;
+    }
+    keep = dilateMask(keep);
+
+    // Roof spike trim vs median roof line
+    var tops = new Int32Array(w);
+    for (var x = 0; x < w; x++) {
+      tops[x] = h;
+      for (var y = 0; y < h; y++) {
+        if (keep[y * w + x]) {
+          tops[x] = y;
+          break;
+        }
       }
     }
+    var roofVals = [];
+    for (x = 0; x < w; x++) if (tops[x] < h) roofVals.push(tops[x]);
+    roofVals.sort(function (a, b) {
+      return a - b;
+    });
+    var medRoof = roofVals.length
+      ? roofVals[(roofVals.length / 2) | 0]
+      : 0;
+    for (x = 0; x < w; x++) {
+      if (tops[x] < h && tops[x] < medRoof - 10) {
+        for (y = 0; y < medRoof - 2; y++) keep[y * w + x] = 0;
+      }
+    }
+
+    for (i = 0; i < n; i++) {
+      if (!keep[i]) {
+        data[i * 4] = 0;
+        data[i * 4 + 1] = 0;
+        data[i * 4 + 2] = 0;
+        data[i * 4 + 3] = 0;
+      } else if (data[i * 4 + 3] > 0) {
+        data[i * 4 + 3] = 255;
+      }
+    }
+  }
+
+  /** Tight crop car, then center on dealer canvas (fixes tiny lower-right car). */
+  async function frameCutout(cutoutBlob, backdropKey) {
+    var img = await loadImage(cutoutBlob);
+    var src = canvasFromImage(img);
+    var ctx = src.getContext("2d", { willReadFrequently: true });
+    var w = src.width;
+    var h = src.height;
+    var data = ctx.getImageData(0, 0, w, h).data;
+    var minX = w;
+    var minY = h;
+    var maxX = 0;
+    var maxY = 0;
+    var found = false;
+    for (var y = 0; y < h; y++) {
+      for (var x = 0; x < w; x++) {
+        if (data[(y * w + x) * 4 + 3] < 16) continue;
+        found = true;
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+      }
+    }
+    if (!found) return cutoutBlob;
+
+    var pad = Math.max(12, Math.round(Math.max(maxX - minX, maxY - minY) * 0.06));
+    minX = Math.max(0, minX - pad);
+    minY = Math.max(0, minY - pad);
+    maxX = Math.min(w - 1, maxX + pad);
+    maxY = Math.min(h - 1, maxY + pad);
+    var cw = maxX - minX + 1;
+    var ch = maxY - minY + 1;
+
+    var outW = Math.max(cw + 80, Math.round(cw * 1.35));
+    var outH = Math.max(ch + 80, Math.round(ch * 1.25));
+    var out = document.createElement("canvas");
+    out.width = outW;
+    out.height = outH;
+    var octx = out.getContext("2d");
+    var color = COLORS[backdropKey] || COLORS["studio-white"];
+    if (backdropKey === "checker" || color === null) {
+      octx.clearRect(0, 0, outW, outH);
+    } else {
+      octx.fillStyle = "rgb(" + color.join(",") + ")";
+      octx.fillRect(0, 0, outW, outH);
+    }
+    var ox = ((outW - cw) / 2) | 0;
+    var oy = ((outH - ch) * 0.55) | 0;
+    octx.drawImage(src, minX, minY, cw, ch, ox, oy, cw, ch);
+    return blobFromCanvas(out, "image/png");
   }
 
   async function refineCutoutBlob(cutoutBlob) {
@@ -349,7 +487,15 @@
     var plateText = opts.plateText || "PRIVATE";
     var upscale = Math.max(1, Math.min(2, parseInt(opts.upscale || "1", 10) || 1));
 
-    var cutImg = await loadImage(cutoutBlob);
+    // Center-crop car onto dealer canvas (MotorCut-style framing)
+    var framed = cutoutBlob;
+    try {
+      framed = await frameCutout(cutoutBlob, mode === "half" ? "checker" : backdrop);
+    } catch (e) {
+      framed = cutoutBlob;
+    }
+
+    var cutImg = await loadImage(framed);
     var w = cutImg.naturalWidth;
     var h = cutImg.naturalHeight;
     var canvas = document.createElement("canvas");
@@ -358,29 +504,35 @@
     var ctx = canvas.getContext("2d");
 
     var color = COLORS[backdrop];
-    if (backdrop === "checker" || color === null) {
+    if (mode === "half") {
+      // Half-cut framed on transparent then we paint floor from original
+      ctx.clearRect(0, 0, w, h);
+      if (originalFile) {
+        var orig = await loadImage(originalFile);
+        var floorFrom = Math.floor(h * 0.58);
+        var srcY = Math.floor(orig.naturalHeight * 0.58);
+        // fill upper with backdrop first
+        if (backdrop !== "checker" && color) {
+          ctx.fillStyle = "rgb(" + color.join(",") + ")";
+          ctx.fillRect(0, 0, w, floorFrom);
+        }
+        ctx.drawImage(
+          orig,
+          0,
+          srcY,
+          orig.naturalWidth,
+          orig.naturalHeight - srcY,
+          0,
+          floorFrom,
+          w,
+          h - floorFrom
+        );
+      }
+    } else if (backdrop === "checker" || color === null) {
       ctx.clearRect(0, 0, w, h);
     } else {
-      ctx.fillStyle = "rgb(" + color.join(",") + ")";
-      ctx.fillRect(0, 0, w, h);
-    }
-
-    // Half-cut: keep original lower floor (MotorCut-style authentic floor/shadows)
-    if (mode === "half" && originalFile) {
-      var orig = await loadImage(originalFile);
-      var floorFrom = Math.floor(h * 0.58);
-      var srcY = Math.floor(orig.naturalHeight * 0.58);
-      ctx.drawImage(
-        orig,
-        0,
-        srcY,
-        orig.naturalWidth,
-        orig.naturalHeight - srcY,
-        0,
-        floorFrom,
-        w,
-        h - floorFrom
-      );
+      // frameCutout already applied backdrop for full-cut
+      ctx.clearRect(0, 0, w, h);
     }
 
     ctx.drawImage(cutImg, 0, 0, w, h);
@@ -403,6 +555,7 @@
 
   async function processFile(file, opts, onProgress) {
     if (!file) throw new Error("No image selected");
+    opts = opts || {};
     if (!ready) {
       if (typeof onProgress === "function") onProgress("warmup", 0, 1);
       try {
@@ -412,7 +565,7 @@
       }
     }
     var cut = await removeBg(file, onProgress);
-    return compose(cut, file, opts || {});
+    return compose(cut, file, opts);
   }
 
   global.RCB_BG = {
