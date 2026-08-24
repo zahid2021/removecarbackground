@@ -46,21 +46,6 @@
     // hint for transformer users
   }
 
-  // Preload AI so Process feels ~1s after ready
-  if (window.RCB_BG && window.RCB_BG.warmup) {
-    setStatus("Preparing AI model in browser…");
-    window.RCB_BG.warmup(function (key, current, total) {
-      if (!total) return;
-      setStatus("Preparing AI… " + Math.round((current / total) * 100) + "%");
-    })
-        .then(function () {
-        setStatus("AI ready — Half-Cut / Full-Cut like MotorCut · ~15s");
-      })
-      .catch(function () {
-        setStatus("Upload a car photo — AI loads on first Process");
-      });
-  }
-
   function token() {
     return (window.RCB && window.RCB.getToken()) || localStorage.getItem("rcb_token") || "";
   }
@@ -92,6 +77,32 @@
   function setStatus(text) {
     statusText.textContent = text;
   }
+
+  // Prefer own API; browser AI only if API is down
+  (async function () {
+    setStatus("Connecting to RemoveCarBackground API…");
+    try {
+      if (window.RCB_API_CLIENT && (await window.RCB_API_CLIENT.healthOk())) {
+        setStatus("Own API ready — Process uses server cutout");
+        return;
+      }
+    } catch (e) {}
+    if (window.RCB_BG && window.RCB_BG.warmup) {
+      setStatus("API offline — preparing browser AI fallback…");
+      window.RCB_BG.warmup(function (key, current, total) {
+        if (!total) return;
+        setStatus("Preparing AI… " + Math.round((current / total) * 100) + "%");
+      })
+        .then(function () {
+          setStatus("Browser AI ready (fallback) — Process when uploaded");
+        })
+        .catch(function () {
+          setStatus("Upload a car photo — Process will try API then browser");
+        });
+    } else {
+      setStatus("Upload a car photo — Process uses own API");
+    }
+  })();
 
   function enableActions(hasFile) {
     processBtn.disabled = !hasFile;
@@ -208,31 +219,35 @@
 
   processBtn.addEventListener("click", async function () {
     if (!state.file) return;
-    if (!window.RCB_BG || !window.RCB_BG.processFile) {
+    if (
+      !(window.RCB_BG && window.RCB_BG.processFile) &&
+      !(window.RCB_API_CLIENT && window.RCB_API_CLIENT.processFile)
+    ) {
       setStatus("Background engine missing — refresh the page");
       return;
     }
     processBtn.disabled = true;
     downloadBtn.disabled = true;
     var started = Date.now();
-    setStatus("Loading AI in your browser (first time only)…");
+    setStatus("Sending to own API…");
     mockBadge.hidden = false;
     mockBadge.textContent =
-      (state.mode === "half" ? "HALF-CUT" : "FULL-CUT") + " · WORKING";
+      (state.mode === "half" ? "HALF-CUT" : "FULL-CUT") + " · API";
 
     var tick = setInterval(function () {
       var s = Math.round((Date.now() - started) / 1000);
-      if (s <= 15) {
-        setStatus("Removing background… " + s + "s / ~15s");
+      if (s <= 20) {
+        setStatus("Server cutout… " + s + "s");
       } else {
-        setStatus(
-          "Still working… " + s + "s — first run can be slower; keep tab open"
-        );
+        setStatus("Still working… " + s + "s — keep tab open");
       }
     }, 500);
 
     try {
-      var blob = await window.RCB_BG.processFile(
+      var runner =
+        (window.RCB_BG && window.RCB_BG.processFile) ||
+        window.RCB_API_CLIENT.processFile;
+      var blob = await runner(
         state.file,
         {
           mode: state.mode,
@@ -242,6 +257,16 @@
           upscale: upscale.value,
         },
         function (key, current, total) {
+          if (key === "browser-fallback") {
+            setStatus("API busy — using browser AI fallback…");
+            mockBadge.textContent =
+              (state.mode === "half" ? "HALF-CUT" : "FULL-CUT") + " · BROWSER";
+            return;
+          }
+          if (key === "api") {
+            setStatus("Own API processing…");
+            return;
+          }
           if (!total) return;
           var pct = Math.round((current / total) * 100);
           setStatus("AI model: " + key + " " + pct + "%");

@@ -233,9 +233,15 @@ def health():
             users = int(row["c"] if isinstance(row, dict) else row[0])
     except Exception:  # noqa: BLE001
         users = -1
+    from pipeline import DEFAULT_MAX_SIDE, LOW_MEMORY, rembg_model_name
+
     return {
         "status": "ok",
         "service": "removecarbackground",
+        "engine": "own-api-rembg",
+        "rembg_model": rembg_model_name(),
+        "process_max_side": DEFAULT_MAX_SIDE,
+        "low_memory": LOW_MEMORY,
         "stripe": bool(STRIPE_SECRET),
         "guest_process": ALLOW_GUEST_PROCESS,
         "db": "postgres" if db.USE_PG else "sqlite",
@@ -825,17 +831,27 @@ def api_docs():
     }
 
 
-# Explicit root — StaticFiles html=True can 404 on "/" behind some proxies
-@app.get("/")
-def serve_index():
-    return FileResponse(
-        ROOT / "index.html",
-        headers={
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            "Pragma": "no-cache",
-        },
-    )
+# Serve frontend last so /api routes win (skip if html missing — API-only deploys)
+_index = ROOT / "index.html"
+if _index.exists():
+    @app.get("/")
+    def serve_index():
+        return FileResponse(
+            _index,
+            headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+            },
+        )
 
+    app.mount("/", StaticFiles(directory=str(ROOT), html=True), name="static")
+else:
 
-# Serve frontend last so /api routes win
-app.mount("/", StaticFiles(directory=str(ROOT), html=True), name="static")
+    @app.get("/")
+    def api_root():
+        return {
+            "service": "removecarbackground",
+            "engine": "own-api-rembg",
+            "docs": "/api/v1/docs",
+            "health": "/api/health",
+        }

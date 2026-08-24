@@ -36,9 +36,9 @@ services:
       - key: REMBG_MODEL
         value: "u2netp"
       - key: PROCESS_MAX_SIDE
-        value: "1024"
+        value: "768"
       - key: REMBG_HARD_CAP
-        value: "960"
+        value: "720"
       - key: LOW_MEMORY
         value: "1"
       - key: WARMUP_REMBG

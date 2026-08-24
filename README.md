@@ -2,6 +2,19 @@
 
 Live product for **removecarbackground.com** — MotorCut feature parity + polish.
 
+## Own BG-removal API
+
+Editor uses **your server** (`POST /api/process`) first; browser AI is fallback only.
+
+Quality deploy (2GB+ RAM):
+
+```bash
+docker compose up --build
+# see docs/OWN_API.md
+```
+
+Free Render 512MB cannot run `isnet` — keep `LOW_MEMORY=1` there or upgrade the API host.
+
 ## Run
 
 ```bash

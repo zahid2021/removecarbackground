@@ -77,15 +77,54 @@
 
   runBtn.addEventListener("click", async function () {
     if (!files.length) return;
-    if (!window.RCB_BG || !window.RCB_BG.processFile) {
+    var runner =
+      (window.RCB_BG && window.RCB_BG.processFile) ||
+      (window.RCB_API_CLIENT && window.RCB_API_CLIENT.processFile);
+    if (!runner) {
       status.textContent = "Background engine missing — refresh the page";
       return;
     }
     runBtn.disabled = true;
     var started = Date.now();
-    status.textContent = "Loading AI in browser (first time)…";
+    status.textContent = "Using own API (batch)…";
 
     try {
+      // Prefer server ZIP batch when API is up (faster + one round-trip)
+      if (window.RCB_API_CLIENT && (await window.RCB_API_CLIENT.healthOk())) {
+        var fd = new FormData();
+        files.forEach(function (f) {
+          fd.append("files", f, f.name);
+        });
+        fd.append("mode", mode.value);
+        fd.append("backdrop", backdrop.value);
+        fd.append("plate", plate.value);
+        fd.append("plate_text", "PRIVATE");
+        fd.append("upscale", upscale.value);
+        var headers = {};
+        try {
+          var t = localStorage.getItem("rcb_token");
+          if (t) headers.Authorization = "Bearer " + t;
+        } catch (e) {}
+        status.textContent = "Server batch processing " + files.length + " images…";
+        var res = await fetch(
+          (window.RCB_API || window.location.origin) + "/api/batch",
+          { method: "POST", body: fd, headers: headers, mode: "cors" }
+        );
+        if (res.ok) {
+          var zipBlob = await res.blob();
+          var a = document.createElement("a");
+          a.href = URL.createObjectURL(zipBlob);
+          a.download = "rcb-batch.zip";
+          a.click();
+          status.textContent =
+            "Done in " +
+            Math.round((Date.now() - started) / 1000) +
+            "s — ZIP from own API";
+          return;
+        }
+        status.textContent = "API batch failed — falling back per image…";
+      }
+
       var JSZip = await loadJSZip();
       var zip = new JSZip();
       var ok = 0;
@@ -94,7 +133,7 @@
         status.textContent =
           "Processing " + (i + 1) + "/" + files.length + ": " + f.name;
         try {
-          var blob = await window.RCB_BG.processFile(f, {
+          var blob = await runner(f, {
             mode: mode.value,
             backdrop: backdrop.value,
             plate: plate.value,
@@ -111,10 +150,10 @@
       if (!ok) throw new Error("All images failed");
       status.textContent = "Building ZIP…";
       var out = await zip.generateAsync({ type: "blob" });
-      var a = document.createElement("a");
-      a.href = URL.createObjectURL(out);
-      a.download = "rcb-batch.zip";
-      a.click();
+      var a2 = document.createElement("a");
+      a2.href = URL.createObjectURL(out);
+      a2.download = "rcb-batch.zip";
+      a2.click();
       status.textContent =
         "Done in " +
         Math.round((Date.now() - started) / 1000) +

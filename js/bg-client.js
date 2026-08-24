@@ -553,7 +553,7 @@
     return blobFromCanvas(canvas, "image/png");
   }
 
-  async function processFile(file, opts, onProgress) {
+  async function processFileBrowser(file, opts, onProgress) {
     if (!file) throw new Error("No image selected");
     opts = opts || {};
     if (!ready) {
@@ -568,6 +568,14 @@
     return compose(cut, file, opts);
   }
 
+  /** Prefer own server API; browser AI is fallback only. */
+  async function processFile(file, opts, onProgress) {
+    if (global.RCB_API_CLIENT && global.RCB_API_CLIENT.processFile) {
+      return global.RCB_API_CLIENT.processFile(file, opts, onProgress);
+    }
+    return processFileBrowser(file, opts, onProgress);
+  }
+
   global.RCB_BG = {
     COLORS: COLORS,
     MODEL: MODEL,
@@ -578,13 +586,23 @@
     removeBg: removeBg,
     compose: compose,
     processFile: processFile,
+    processFileBrowser: processFileBrowser,
+    _browserProcess: processFileBrowser,
   };
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", function () {
+  // Browser warmup only as fallback — own API is primary
+  function maybeWarmupBrowser() {
+    if (!global.RCB_API_CLIENT) {
       warmup().catch(function () {});
+      return;
+    }
+    global.RCB_API_CLIENT.healthOk().then(function (ok) {
+      if (!ok) warmup().catch(function () {});
     });
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", maybeWarmupBrowser);
   } else {
-    warmup().catch(function () {});
+    maybeWarmupBrowser();
   }
 })(window);

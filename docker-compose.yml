@@ -1,0 +1,29 @@
+# Own RemoveCarBackground API — quality profile (not free 512MB)
+#
+# Local:
+#   docker compose up --build
+#   curl http://127.0.0.1:8000/api/health
+#   Editor: set RCB_API to http://127.0.0.1:8000 (or open API origin)
+#
+# Deploy: any 2GB+ VPS / Railway / Render Standard — free tier will OOM on isnet.
+
+services:
+  rcb-api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      JWT_SECRET: change-me-in-production
+      ALLOW_GUEST_PROCESS: "1"
+      LOW_MEMORY: "0"
+      REMBG_MODEL: isnet-general-use
+      PROCESS_MAX_SIDE: "1600"
+      REMBG_HARD_CAP: "1920"
+      WARMUP_REMBG: "1"
+      AUTO_SAVE_ADVERTS: "0"
+    volumes:
+      - rcb-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  rcb-data:

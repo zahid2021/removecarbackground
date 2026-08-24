@@ -10,3 +10,5 @@ mobile/**/.gradle/
 *.log
 .idea/
 .vscode/
+outputs/
+dist/

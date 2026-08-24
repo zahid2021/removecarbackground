@@ -1,4 +1,4 @@
-"""Image processing: rembg, custom backdrops, OpenCV plate detect, sharp upscale."""
+"""Image processing: rembg API cutout, dealer cleanup, plate, upscale."""
 from __future__ import annotations
 
 import gc
@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 from typing import Optional, Tuple
 
-# Keep ONNX / BLAS memory low on Render free (512MB)
+# Keep ONNX / BLAS memory low on small hosts (override with env on GPU/paid)
 os.environ.setdefault("OMP_NUM_THREADS", "1")
 os.environ.setdefault("ORT_NUM_THREADS", "1")
 os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
@@ -25,8 +25,13 @@ BACKDROPS = {
     "checker": None,
 }
 
-# Free-tier safe default (was 1600 — OOM on Render 512MB)
-DEFAULT_MAX_SIDE = int(os.getenv("PROCESS_MAX_SIDE", "1024"))
+LOW_MEMORY = os.getenv("LOW_MEMORY", "1") == "1"
+# Quality hosts: raise PROCESS_MAX_SIDE / REMBG_HARD_CAP and set LOW_MEMORY=0
+DEFAULT_MAX_SIDE = int(os.getenv("PROCESS_MAX_SIDE", "768" if LOW_MEMORY else "1600"))
+DEFAULT_MODEL = os.getenv(
+    "REMBG_MODEL",
+    "u2netp" if LOW_MEMORY else "isnet-general-use",
+)
 
 
 def load_image(data: bytes) -> Image.Image:
@@ -37,15 +42,17 @@ def load_image(data: bytes) -> Image.Image:
 _REMBG_SESSION = None
 
 
+def rembg_model_name() -> str:
+    return DEFAULT_MODEL
+
+
 def _rembg_session():
     """Reuse one ONNX session — creating per request makes the UI feel stuck."""
     global _REMBG_SESSION
     from rembg import new_session
 
     if _REMBG_SESSION is None:
-        # u2netp = fast/small (~5MB). Set REMBG_MODEL=u2net for higher quality.
-        model = os.getenv("REMBG_MODEL", "u2netp")
-        _REMBG_SESSION = new_session(model)
+        _REMBG_SESSION = new_session(DEFAULT_MODEL)
     return _REMBG_SESSION
 
 
@@ -53,22 +60,119 @@ def cutout(img: Image.Image) -> Image.Image:
     from rembg import remove
 
     session = _rembg_session()
-    # Shrink further if still large (extra safety for free RAM)
     w, h = img.size
-    hard_cap = int(os.getenv("REMBG_HARD_CAP", "960"))
+    hard_cap = int(os.getenv("REMBG_HARD_CAP", "720" if LOW_MEMORY else "1920"))
+    work = img
     if max(w, h) > hard_cap:
         scale = hard_cap / max(w, h)
-        img = img.resize((max(1, int(w * scale)), max(1, int(h * scale))), Image.Resampling.LANCZOS)
+        work = img.resize(
+            (max(1, int(w * scale)), max(1, int(h * scale))),
+            Image.Resampling.LANCZOS,
+        )
     buf = io.BytesIO()
-    img.save(buf, format="PNG", optimize=True)
+    work.convert("RGB").save(buf, format="JPEG", quality=92)
     raw = buf.getvalue()
     buf.close()
     out = remove(raw, session=session, alpha_matting=False)
     del raw
     result = Image.open(io.BytesIO(out)).convert("RGBA")
     del out
+    # Restore to requested size if we shrank for inference
+    if result.size != img.size:
+        result = result.resize(img.size, Image.Resampling.LANCZOS)
     gc.collect()
     return result
+
+
+def dealer_cleanup(cut: Image.Image) -> Image.Image:
+    """Keep largest car blob, kill green fringe / floating trees, trim roof spikes."""
+    try:
+        import cv2
+    except ImportError:
+        return cut
+
+    rgba = np.array(cut)
+    if rgba.ndim != 3 or rgba.shape[2] != 4:
+        return cut
+    h, w = rgba.shape[:2]
+    alpha = rgba[:, :, 3].astype(np.float32)
+    r = rgba[:, :, 0].astype(np.float32)
+    g = rgba[:, :, 1].astype(np.float32)
+    b = rgba[:, :, 2].astype(np.float32)
+
+    green_bias = g - np.maximum(r, b)
+    kill = (alpha < 28) | ((alpha < 200) & (green_bias > 14)) | (
+        (alpha < 150) & (g > 85) & (b > 65) & (r < g - 12)
+    )
+    alpha = np.where(kill, 0, alpha)
+    # Soft fringe → hard matte
+    alpha = np.where(alpha < 90, 0, alpha)
+    soft = (alpha >= 90) & (alpha < 210)
+    alpha = np.where(soft, (alpha - 90) * (255.0 / 120.0), alpha)
+    alpha = np.where(alpha >= 210, 255, alpha)
+    # Mild green despill on remaining fringe
+    g2 = np.where(green_bias > 6, np.maximum(0, g - np.minimum(green_bias, 28)), g)
+    rgba[:, :, 1] = g2.astype(np.uint8)
+    rgba[:, :, 3] = alpha.astype(np.uint8)
+
+    solid = (rgba[:, :, 3] >= 128).astype(np.uint8)
+    kernel = np.ones((3, 3), np.uint8)
+    eroded = cv2.erode(solid, kernel, iterations=1)
+
+    num, labels, stats, _ = cv2.connectedComponentsWithStats(eroded, connectivity=4)
+    if num <= 1:
+        num, labels, stats, _ = cv2.connectedComponentsWithStats(solid, connectivity=4)
+        if num <= 1:
+            return Image.fromarray(rgba, "RGBA")
+
+    # label 0 = background
+    areas = stats[1:, cv2.CC_STAT_AREA]
+    largest = 1 + int(np.argmax(areas))
+    keep = (labels == largest).astype(np.uint8)
+    keep = cv2.dilate(keep, kernel, iterations=1)
+
+    # Roof spike trim vs median roof line
+    tops = []
+    for x in range(w):
+        col = keep[:, x]
+        ys = np.flatnonzero(col)
+        tops.append(int(ys[0]) if ys.size else h)
+    roof_vals = [t for t in tops if t < h]
+    if roof_vals:
+        med = int(np.median(roof_vals))
+        for x, t in enumerate(tops):
+            if t < h and t < med - 10:
+                keep[: max(0, med - 2), x] = 0
+
+    mask = keep.astype(bool)
+    rgba[~mask] = 0
+    rgba[mask, 3] = 255
+    return Image.fromarray(rgba, "RGBA")
+
+
+def frame_cutout(subject: Image.Image, backdrop_key: str, custom_path: Optional[Path] = None) -> Image.Image:
+    """Tight crop car, then center on a dealer-style canvas (fixes tiny corner cars)."""
+    bbox = subject.split()[-1].getbbox()
+    if not bbox:
+        return composite(subject, backdrop_key, custom_path)
+
+    x0, y0, x1, y1 = bbox
+    cw, ch = x1 - x0, y1 - y0
+    pad = max(12, int(max(cw, ch) * 0.06))
+    x0 = max(0, x0 - pad)
+    y0 = max(0, y0 - pad)
+    x1 = min(subject.width, x1 + pad)
+    y1 = min(subject.height, y1 + pad)
+    cropped = subject.crop((x0, y0, x1, y1))
+    cw, ch = cropped.size
+
+    out_w = max(cw + 80, int(cw * 1.35))
+    out_h = max(ch + 80, int(ch * 1.25))
+    canvas = _backdrop_canvas((out_w, out_h), backdrop_key, custom_path)
+    ox = (out_w - cw) // 2
+    oy = int((out_h - ch) * 0.55)
+    canvas.paste(cropped, (ox, oy), cropped)
+    return canvas
 
 
 def _backdrop_canvas(size: Tuple[int, int], backdrop_key: str, custom_path: Optional[Path] = None) -> Image.Image:
@@ -76,10 +180,6 @@ def _backdrop_canvas(size: Tuple[int, int], backdrop_key: str, custom_path: Opti
     if custom_path and custom_path.exists():
         bg = Image.open(custom_path).convert("RGBA")
         return bg.resize((w, h), Image.Resampling.LANCZOS)
-
-    if backdrop_key.startswith("custom:"):
-        # handled via custom_path
-        pass
 
     color = BACKDROPS.get(backdrop_key, BACKDROPS["studio-white"])
     if color is None:
@@ -154,13 +254,10 @@ def _detect_plate_box_cv(img: Image.Image) -> Tuple[int, int, int, int] | None:
 
     rgb = np.array(img.convert("RGB"))
     hsv = cv2.cvtColor(rgb, cv2.COLOR_RGB2HSV)
-    # Yellow UK plates
     yellow = cv2.inRange(hsv, (15, 80, 120), (40, 255, 255))
-    # White / light plates
     white = cv2.inRange(hsv, (0, 0, 180), (180, 60, 255))
     mask = cv2.bitwise_or(yellow, white)
 
-    # Prefer lower half of car (plates usually there)
     h, w = mask.shape
     mask[: int(h * 0.45), :] = 0
 
@@ -181,7 +278,6 @@ def _detect_plate_box_cv(img: Image.Image) -> Tuple[int, int, int, int] | None:
         area = bw * bh
         if area < 800 or area > (w * h * 0.08):
             continue
-        # Prefer lower-center
         cy = y + bh / 2
         cx = x + bw / 2
         score = area * (1.0 + (cy / h)) * (1.0 - abs(cx - w / 2) / w)
@@ -232,7 +328,6 @@ def upscale_image(img: Image.Image, factor: int) -> Image.Image:
         scale = max_side / max(target_w, target_h)
         target_w, target_h = int(target_w * scale), int(target_h * scale)
 
-    # Progressive 2× steps when possible (better than one big jump)
     out = img
     while out.width * 2 <= target_w and out.height * 2 <= target_h:
         out = out.resize((out.width * 2, out.height * 2), Image.Resampling.LANCZOS)
@@ -242,7 +337,6 @@ def upscale_image(img: Image.Image, factor: int) -> Image.Image:
         out = out.resize((target_w, target_h), Image.Resampling.LANCZOS)
         out = out.filter(ImageFilter.UnsharpMask(radius=1.4, percent=140, threshold=2))
 
-    # Mild contrast restore
     out = ImageEnhance.Sharpness(out).enhance(1.15)
     return out
 
@@ -259,8 +353,7 @@ def process_car_image(
 ) -> bytes:
     if max_side is None:
         max_side = DEFAULT_MAX_SIDE
-    # Cap upscale on low-memory hosts
-    if os.getenv("LOW_MEMORY", "1") == "1":
+    if LOW_MEMORY:
         upscale = min(int(upscale), 2)
 
     original = load_image(data)
@@ -270,13 +363,14 @@ def process_car_image(
         original = original.resize((int(w * scale), int(h * scale)), Image.Resampling.LANCZOS)
 
     subject = cutout(original)
+    subject = dealer_cleanup(subject)
 
     if mode == "half":
         result = half_cut_compose(original, subject, backdrop, custom_backdrop_path)
     else:
-        result = composite(subject, backdrop, custom_backdrop_path)
+        # Full-cut: center car on studio canvas (MotorCut-style framing)
+        result = frame_cutout(subject, backdrop, custom_backdrop_path)
 
-    # Free intermediates before plate/upscale
     del original, subject
     gc.collect()
 
@@ -304,7 +398,6 @@ def credit_cost(plate: str, upscale: int) -> int:
 
 def normalize_backdrop_upload(data: bytes) -> bytes:
     img = load_image(data)
-    # Cap backdrop size
     max_side = 2400
     w, h = img.size
     scale = min(1.0, max_side / max(w, h))
