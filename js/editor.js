@@ -54,7 +54,7 @@
       setStatus("Preparing AI… " + Math.round((current / total) * 100) + "%");
     })
         .then(function () {
-        setStatus("AI ready (high quality) — Process may take ~20–40s");
+        setStatus("AI ready — Process usually ~10–15s (wait for this before clicking)");
       })
       .catch(function () {
         setStatus("Upload a car photo — AI loads on first Process");
@@ -222,8 +222,14 @@
 
     var tick = setInterval(function () {
       var s = Math.round((Date.now() - started) / 1000);
-      setStatus("Working in browser… " + s + "s — do not close this tab");
-    }, 1000);
+      if (s <= 15) {
+        setStatus("Removing background… " + s + "s / ~15s");
+      } else {
+        setStatus(
+          "Still working… " + s + "s — first run can be slower; keep tab open"
+        );
+      }
+    }, 500);
 
     try {
       var blob = await window.RCB_BG.processFile(
