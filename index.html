@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=46" />
+  <link rel="stylesheet" href="css/styles.css?v=47" />
 </head>
 <body>
   <div class="bg-mesh" aria-hidden="true"></div>
@@ -47,22 +47,34 @@
     </div>
   </nav>
 
-  <header class="hero hero-cinema">
-    <div class="hero-cinema-bg" aria-hidden="true">
-      <img src="/images/demo/showcase-wide.jpg" alt="" width="1400" height="700" loading="eager" fetchpriority="high" decoding="async" />
+  <header class="hero hero-3d-shell">
+    <div
+      id="hero3d"
+      class="hero-3d-stage"
+      data-car-src="/images/demo/after-full.jpg"
+      aria-hidden="true"
+    >
+      <img
+        class="hero-3d-fallback-img"
+        src="/images/demo/showcase-wide.jpg"
+        alt=""
+        width="1400"
+        height="700"
+        loading="eager"
+        fetchpriority="high"
+        decoding="async"
+      />
     </div>
-    <div class="hero-cinema-shade" aria-hidden="true"></div>
-    <div class="wrap hero-cinema-inner">
-      <div class="hero-copy">
-        <div class="hero-brand">RemoveCar<em>Background</em></div>
-        <h1 class="hero-h1">Best car photo editing app to create vehicle adverts in seconds</h1>
-        <p class="hero-lead">
-          Designed to take the hard work out of creating stunning vehicle adverts — half-cut, full-cut, plates, upscale, and branded showroom scenes.
-        </p>
-        <div class="hero-actions">
-          <a class="btn btn-primary" href="signup.html">Try for free!</a>
-          <a class="btn btn-ghost" href="meet.html" style="color:#fff;border-color:rgba(255,255,255,.35)">Book a Demo!</a>
-        </div>
+    <div class="hero-3d-veil" aria-hidden="true"></div>
+    <div class="wrap hero-3d-copy">
+      <div class="hero-brand">RemoveCar<em>Background</em></div>
+      <h1 class="hero-h1">Showroom-ready car photos in seconds</h1>
+      <p class="hero-lead">
+        AI cuts the clutter and drops vehicles into branded scenes — built for dealership ads that convert.
+      </p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="signup.html">Try for free</a>
+        <a class="btn btn-ghost hero-ghost" href="meet.html">Book a Demo</a>
       </div>
     </div>
   </header>
@@ -740,7 +752,9 @@
   </footer>
 
   <script src="js/config.js"></script>
-  <script src="js/main.js?v=46"></script>
-  <script src="js/meet.js?v=46"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js" defer></script>
+  <script src="js/hero-3d.js?v=47" defer></script>
+  <script src="js/main.js?v=47"></script>
+  <script src="js/meet.js?v=47"></script>
 </body>
 </html>

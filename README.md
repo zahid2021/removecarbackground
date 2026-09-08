@@ -2,6 +2,8 @@
 
 Live product for **removecarbackground.com** — MotorCut feature parity + polish.
 
+Landing hero uses an interactive **3D showroom stage** (Three.js). Tech / accuracy notes for clients: [`docs/CLIENT_TECH.md`](docs/CLIENT_TECH.md).
+
 ## Own BG-removal API
 
 Editor uses **your server** (`POST /api/process`) first; browser AI is fallback only.
