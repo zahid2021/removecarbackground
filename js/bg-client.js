@@ -151,7 +151,6 @@
       var g = data[o + 1];
       var b = data[o + 2];
       var greenBias = g - Math.max(r, b);
-      var luma = 0.299 * r + 0.587 * g + 0.114 * b;
       if (a < 200 && greenBias > 14) {
         data[o + 3] = 0;
         continue;
