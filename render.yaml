@@ -38,7 +38,7 @@ services:
       - key: PROCESS_MAX_SIDE
         value: "768"
       - key: REMBG_HARD_CAP
-        value: "720"
+        value: "768"
       - key: LOW_MEMORY
         value: "1"
       - key: WARMUP_REMBG

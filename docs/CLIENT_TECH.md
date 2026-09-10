@@ -17,8 +17,9 @@ Code: `pipeline.py`, `js/bg-client.js`, `backend.py` (`POST /api/process`).
 ## Accuracy / efficiency (honest)
 
 - **Good:** clear daylight lots, side/front angles, contrast between car and background.
-- **Weaker (last free-tier runs):** dark cars on dark lots, reflections, tree/roof bleed, thin antennas — `u2netp` is lighter but less precise than `isnet-general-use`.
-- **Improve next:** run quality profile (`isnet-general-use` on paid/Docker 2GB+), keep browser `isnet_fp16` fallback, optional edge refine / alpha matting for hard cases.
+- **Weaker (last free-tier runs):** dark cars on dark lots, reflections, thin antennas — `u2netp` is lighter but less precise than `isnet-general-use`.
+- **Edge pass:** PNG input to rembg (no JPEG ringing), `post_process_mask`, matched hard-cap (no shrink→upscale), soft AA matte + dark/green fringe kill.
+- **Improve next:** quality profile (`isnet-general-use` on paid/Docker 2GB+), optional alpha matting on larger hosts.
 
 ## Website / domain
 

@@ -61,7 +61,8 @@ def cutout(img: Image.Image) -> Image.Image:
 
     session = _rembg_session()
     w, h = img.size
-    hard_cap = int(os.getenv("REMBG_HARD_CAP", "720" if LOW_MEMORY else "1920"))
+    # Match PROCESS_MAX_SIDE by default — avoid shrink→upscale (causes jagged edges)
+    hard_cap = int(os.getenv("REMBG_HARD_CAP", str(DEFAULT_MAX_SIDE if LOW_MEMORY else 1920)))
     work = img
     if max(w, h) > hard_cap:
         scale = hard_cap / max(w, h)
@@ -70,14 +71,15 @@ def cutout(img: Image.Image) -> Image.Image:
             Image.Resampling.LANCZOS,
         )
     buf = io.BytesIO()
-    work.convert("RGB").save(buf, format="JPEG", quality=92)
+    # PNG (not JPEG) — JPEG ringing hurts white-car edges
+    work.convert("RGBA").save(buf, format="PNG", optimize=True)
     raw = buf.getvalue()
     buf.close()
-    out = remove(raw, session=session, alpha_matting=False)
+    out = remove(raw, session=session, alpha_matting=False, post_process_mask=True)
     del raw
     result = Image.open(io.BytesIO(out)).convert("RGBA")
     del out
-    # Restore to requested size if we shrank for inference
+    # Restore size only if we actually shrank for inference
     if result.size != img.size:
         result = result.resize(img.size, Image.Resampling.LANCZOS)
     gc.collect()
@@ -85,7 +87,7 @@ def cutout(img: Image.Image) -> Image.Image:
 
 
 def dealer_cleanup(cut: Image.Image) -> Image.Image:
-    """Keep largest car blob, kill green fringe / floating trees, trim roof spikes."""
+    """Keep largest car blob, kill fringe/trees, anti-aliased matte edges."""
     try:
         import cv2
     except ImportError:
@@ -101,17 +103,22 @@ def dealer_cleanup(cut: Image.Image) -> Image.Image:
     b = rgba[:, :, 2].astype(np.float32)
 
     green_bias = g - np.maximum(r, b)
-    kill = (alpha < 28) | ((alpha < 200) & (green_bias > 14)) | (
-        (alpha < 150) & (g > 85) & (b > 65) & (r < g - 12)
+    luma = 0.299 * r + 0.587 * g + 0.114 * b
+    # Kill weak / green / dark halo fringe (tires stay — they have solid alpha)
+    kill = (
+        (alpha < 32)
+        | ((alpha < 210) & (green_bias > 12))
+        | ((alpha < 160) & (g > 85) & (b > 65) & (r < g - 12))
+        | ((alpha < 200) & (luma < 38) & (green_bias < 8))
     )
     alpha = np.where(kill, 0, alpha)
-    # Soft fringe → hard matte
-    alpha = np.where(alpha < 90, 0, alpha)
-    soft = (alpha >= 90) & (alpha < 210)
-    alpha = np.where(soft, (alpha - 90) * (255.0 / 120.0), alpha)
-    alpha = np.where(alpha >= 210, 255, alpha)
+    # Soft fringe → firmer matte (keep some mid-alpha for later AA)
+    alpha = np.where(alpha < 70, 0, alpha)
+    soft = (alpha >= 70) & (alpha < 220)
+    alpha = np.where(soft, (alpha - 70) * (255.0 / 150.0), alpha)
+    alpha = np.where(alpha >= 220, 255, alpha)
     # Mild green despill on remaining fringe
-    g2 = np.where(green_bias > 6, np.maximum(0, g - np.minimum(green_bias, 28)), g)
+    g2 = np.where(green_bias > 5, np.maximum(0, g - np.minimum(green_bias, 32)), g)
     rgba[:, :, 1] = g2.astype(np.uint8)
     rgba[:, :, 3] = alpha.astype(np.uint8)
 
@@ -130,6 +137,10 @@ def dealer_cleanup(cut: Image.Image) -> Image.Image:
     largest = 1 + int(np.argmax(areas))
     keep = (labels == largest).astype(np.uint8)
     keep = cv2.dilate(keep, kernel, iterations=1)
+    # Fill tiny holes in body panels / close wheel gaps
+    keep = cv2.morphologyEx(keep, cv2.MORPH_CLOSE, kernel, iterations=2)
+    # Drop 1px dust
+    keep = cv2.morphologyEx(keep, cv2.MORPH_OPEN, np.ones((2, 2), np.uint8), iterations=1)
 
     # Roof spike trim vs median roof line
     tops = []
@@ -141,12 +152,23 @@ def dealer_cleanup(cut: Image.Image) -> Image.Image:
     if roof_vals:
         med = int(np.median(roof_vals))
         for x, t in enumerate(tops):
-            if t < h and t < med - 10:
-                keep[: max(0, med - 2), x] = 0
+            if t < h and t < med - 8:
+                keep[: max(0, med - 1), x] = 0
 
-    mask = keep.astype(bool)
+    # Soft AA edge instead of binary jagged matte
+    edge = keep.astype(np.float32) * 255.0
+    edge = cv2.GaussianBlur(edge, (0, 0), sigmaX=0.85)
+    # Core stays opaque; rim gets smooth falloff
+    core = cv2.erode(keep, kernel, iterations=1).astype(bool)
+    edge = np.where(core, 255.0, edge)
+    edge = np.clip(edge, 0, 255)
+
+    mask = edge > 6
     rgba[~mask] = 0
-    rgba[mask, 3] = 255
+    rgba[mask, 3] = edge[mask].astype(np.uint8)
+    # Clear near-invisible RGB crumbs
+    faint = rgba[:, :, 3] < 18
+    rgba[faint] = 0
     return Image.fromarray(rgba, "RGBA")
 
 

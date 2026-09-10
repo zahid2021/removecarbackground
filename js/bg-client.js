@@ -143,7 +143,7 @@
     for (i = 0; i < n; i++) {
       o = i * 4;
       var a = data[o + 3];
-      if (a < 28) {
+      if (a < 32) {
         data[o + 3] = 0;
         continue;
       }
@@ -151,18 +151,23 @@
       var g = data[o + 1];
       var b = data[o + 2];
       var greenBias = g - Math.max(r, b);
-      if (a < 200 && greenBias > 14) {
+      var luma = 0.299 * r + 0.587 * g + 0.114 * b;
+      if (a < 210 && greenBias > 12) {
         data[o + 3] = 0;
         continue;
       }
-      if (a < 150 && g > 85 && b > 65 && r < g - 12) {
+      if (a < 160 && g > 85 && b > 65 && r < g - 12) {
         data[o + 3] = 0;
         continue;
       }
-      if (greenBias > 6) data[o + 1] = Math.max(0, g - Math.min(greenBias, 28));
-      if (data[o + 3] < 90) data[o + 3] = 0;
-      else if (data[o + 3] < 210)
-        data[o + 3] = Math.round((data[o + 3] - 90) * (255 / 120));
+      if (a < 200 && luma < 38 && greenBias < 8) {
+        data[o + 3] = 0;
+        continue;
+      }
+      if (greenBias > 5) data[o + 1] = Math.max(0, g - Math.min(greenBias, 32));
+      if (data[o + 3] < 70) data[o + 3] = 0;
+      else if (data[o + 3] < 220)
+        data[o + 3] = Math.round((data[o + 3] - 70) * (255 / 150));
       else data[o + 3] = 255;
     }
 
@@ -272,6 +277,9 @@
       if (labels[i] === largest) keep[i] = 1;
     }
     keep = dilateMask(keep);
+    // Close tiny holes, then light open for dust
+    keep = dilateMask(erodeMask(dilateMask(keep)));
+    keep = erodeMask(dilateMask(keep));
 
     // Roof spike trim vs median roof line
     var tops = new Int32Array(w);
@@ -293,19 +301,41 @@
       ? roofVals[(roofVals.length / 2) | 0]
       : 0;
     for (x = 0; x < w; x++) {
-      if (tops[x] < h && tops[x] < medRoof - 10) {
-        for (y = 0; y < medRoof - 2; y++) keep[y * w + x] = 0;
+      if (tops[x] < h && tops[x] < medRoof - 8) {
+        for (y = 0; y < medRoof - 1; y++) keep[y * w + x] = 0;
       }
     }
 
+    // Soft AA edge (box blur of mask) instead of hard binary matte
+    var soft = new Float32Array(n);
+    for (i = 0; i < n; i++) soft[i] = keep[i] ? 255 : 0;
+    var blur = new Float32Array(n);
+    for (var y2 = 0; y2 < h; y2++) {
+      for (var x2 = 0; x2 < w; x2++) {
+        var sum = 0;
+        var cnt = 0;
+        for (var dy2 = -1; dy2 <= 1; dy2++) {
+          for (var dx2 = -1; dx2 <= 1; dx2++) {
+            var yy = y2 + dy2;
+            var xx = x2 + dx2;
+            if (yy < 0 || xx < 0 || yy >= h || xx >= w) continue;
+            sum += soft[yy * w + xx];
+            cnt++;
+          }
+        }
+        blur[y2 * w + x2] = sum / cnt;
+      }
+    }
+    var core = erodeMask(keep);
     for (i = 0; i < n; i++) {
-      if (!keep[i]) {
+      var aa = core[i] ? 255 : Math.round(blur[i]);
+      if (aa < 18) {
         data[i * 4] = 0;
         data[i * 4 + 1] = 0;
         data[i * 4 + 2] = 0;
         data[i * 4 + 3] = 0;
-      } else if (data[i * 4 + 3] > 0) {
-        data[i * 4 + 3] = 255;
+      } else {
+        data[i * 4 + 3] = aa;
       }
     }
   }
