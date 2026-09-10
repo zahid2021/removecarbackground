@@ -1142,6 +1142,77 @@ section { padding: clamp(64px, 10vw, 100px) 0; position: relative; }
   border: 1px solid var(--line); font-size: 0.85rem;
 }
 .history-thumb {
+  width: 56px; height: 42px; border-radius: 8px; flex-shrink: 0;
+  background: #d8dde5 center/cover no-repeat;
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+.history-thumb img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+
+/* Multiple images — before/after cards */
+.batch-grid {
+  display: grid;
+  gap: 14px;
+  margin: 0 0 16px;
+}
+.batch-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg-2);
+  padding: 12px;
+}
+.batch-card-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.batch-card-col {
+  display: grid;
+  gap: 6px;
+}
+.batch-card-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mute);
+}
+.batch-card-img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: contain;
+  border-radius: 10px;
+  background:
+    linear-gradient(45deg, #e8ebf0 25%, transparent 25%),
+    linear-gradient(-45deg, #e8ebf0 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #e8ebf0 75%),
+    linear-gradient(-45deg, transparent 75%, #e8ebf0 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  background-color: #f4f6f8;
+  border: 1px solid var(--line);
+}
+.batch-card-placeholder {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: #eceff3;
+  color: var(--mute);
+  font-size: 0.85rem;
+  border: 1px dashed var(--line);
+}
+.batch-card-meta {
+  margin-top: 10px;
+  font-size: 0.88rem;
+}
+@media (max-width: 640px) {
+  .batch-card-pair { grid-template-columns: 1fr; }
+}
+
   width: 44px; height: 32px; border-radius: 6px;
   background: linear-gradient(135deg, #94a3b8, #334155);
 }

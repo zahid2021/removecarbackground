@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=39" />
+  <link rel="stylesheet" href="css/styles.css?v=54" />
   <link rel="preconnect" href="https://staticimgly.com" crossorigin />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
 </head>
@@ -34,7 +34,7 @@
     <div class="section-tag">Multiple images</div>
     <h1 class="section-title" style="max-width:none">Remove multiple images background</h1>
     <p class="section-copy">
-      Select many car photos (up to 20). Wait for “AI ready”, then run — each photo targets ~15s after the model is loaded. Download one ZIP of PNGs.
+      Select many car photos (up to 20). Each car shows <strong>Original</strong> and <strong>Result</strong> side by side so you can see which vehicle was processed — then download one ZIP.
     </p>
 
     <div class="auth-card" style="max-width:none">
@@ -83,17 +83,20 @@
         </div>
       </div>
 
-      <ul id="batchList" class="mute" style="margin:0 0 16px;padding-left:18px;line-height:1.6"></ul>
-      <button class="btn btn-primary" type="button" id="batchRun" disabled>Remove backgrounds → ZIP</button>
+      <div class="batch-grid" id="batchList" hidden></div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:8px">
+        <button class="btn btn-primary" type="button" id="batchRun" disabled>Remove backgrounds → ZIP</button>
+        <button class="btn btn-ghost" type="button" id="batchClear">Clear all</button>
+      </div>
       <p class="mute" id="batchStatus" style="margin-top:12px">No files selected — AI prepares in the background</p>
     </div>
   </main>
   <script src="js/config.js"></script>
   <script src="js/main.js"></script>
   <script src="js/auth.js"></script>
-  <script src="js/api-client.js?v=50"></script>
+  <script src="js/api-client.js?v=54"></script>
   <script src="js/bg-client.js?v=52"></script>
-  <script src="js/transformer.js?v=50"></script>
+  <script src="js/transformer.js?v=54"></script>
   <script>
     if (window.RCB_BG && window.RCB_BG.warmup) {
       var st = document.getElementById("batchStatus");

@@ -285,7 +285,9 @@
         "Done in " + Math.round((Date.now() - started) / 1000) + "s — download PNG"
       );
       history.innerHTML =
-        '<div class="history-item"><div class="history-thumb"></div><div><div>' +
+        '<div class="history-item"><div class="history-thumb"><img src="' +
+        state.resultUrl +
+        '" alt="" /></div><div><div>' +
         (state.fileName || "image") +
         "</div><span class=\"status-pill\">Processed</span></div></div>";
     } catch (err) {
