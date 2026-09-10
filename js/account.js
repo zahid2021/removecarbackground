@@ -28,12 +28,11 @@
     }
     gallery.innerHTML = data.adverts
       .map(function (a) {
-        var src = API + "/api/adverts/" + a.id + "/file?token=" + encodeURIComponent(token());
         return (
-          '<div class="gallery-item">' +
-          '<img src="' +
-          src +
-          '" alt="" loading="lazy" />' +
+          '<div class="gallery-item" data-aid="' +
+          a.id +
+          '">' +
+          '<div class="gallery-thumb mute" style="min-height:120px;display:flex;align-items:center;justify-content:center;background:#eceff3">Loading…</div>' +
           "<div><small>" +
           (a.original_name || a.mode || "advert") +
           "</small><br/>" +
@@ -43,6 +42,24 @@
         );
       })
       .join("");
+    data.adverts.forEach(function (a) {
+      var card = gallery.querySelector('[data-aid="' + a.id + '"]');
+      if (!card) return;
+      var slot = card.querySelector(".gallery-thumb");
+      fetch(API + "/api/adverts/" + a.id + "/file", { headers: authHeaders() })
+        .then(function (r) {
+          if (!r.ok) throw new Error("missing");
+          return r.blob();
+        })
+        .then(function (blob) {
+          var url = URL.createObjectURL(blob);
+          slot.outerHTML = '<img src="' + url + '" alt="" loading="lazy" />';
+        })
+        .catch(function () {
+          slot.innerHTML =
+            "<small style='color:#b00020;padding:8px;text-align:center'>File missing — Delete &amp; re-process</small>";
+        });
+    });
     gallery.querySelectorAll("[data-del]").forEach(function (btn) {
       btn.addEventListener("click", async function () {
         await fetch(API + "/api/adverts/" + btn.dataset.del, {
@@ -66,12 +83,11 @@
     }
     gallery.innerHTML = data.custom
       .map(function (b) {
-        var src = b.url + "?token=" + encodeURIComponent(token());
         return (
-          '<div class="gallery-item">' +
-          '<img src="' +
-          src +
-          '" alt="" loading="lazy" />' +
+          '<div class="gallery-item" data-bid="' +
+          b.id +
+          '">' +
+          '<div class="gallery-thumb mute" style="min-height:120px;display:flex;align-items:center;justify-content:center;background:#eceff3">Loading…</div>' +
           "<div><small>" +
           b.name +
           "</small><br/>" +
@@ -81,6 +97,27 @@
         );
       })
       .join("");
+
+    // Load thumbs with Authorization header (img src alone fails cross-host / expired disk)
+    data.custom.forEach(function (b) {
+      var card = gallery.querySelector('[data-bid="' + b.id + '"]');
+      if (!card) return;
+      var slot = card.querySelector(".gallery-thumb");
+      fetch(API + "/api/backdrops/" + b.id + "/file", { headers: authHeaders() })
+        .then(function (r) {
+          if (!r.ok) throw new Error("missing");
+          return r.blob();
+        })
+        .then(function (blob) {
+          var url = URL.createObjectURL(blob);
+          slot.outerHTML = '<img src="' + url + '" alt="" loading="lazy" />';
+        })
+        .catch(function () {
+          slot.innerHTML =
+            "<small style='color:#b00020;padding:8px;text-align:center'>Image lost after server restart — Delete &amp; re-upload</small>";
+        });
+    });
+
     gallery.querySelectorAll("[data-bdel]").forEach(function (btn) {
       btn.addEventListener("click", async function () {
         await fetch(API + "/api/backdrops/" + btn.dataset.bdel, {

@@ -166,6 +166,7 @@ def _init_sqlite(conn) -> None:
             workspace_id INTEGER NOT NULL,
             name TEXT NOT NULL,
             filename TEXT NOT NULL,
+            data BLOB,
             created_by INTEGER,
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             FOREIGN KEY(workspace_id) REFERENCES workspaces(id)
@@ -179,6 +180,7 @@ def _init_sqlite(conn) -> None:
             original_name TEXT,
             bytes INTEGER NOT NULL DEFAULT 0,
             mode TEXT,
+            data BLOB,
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             FOREIGN KEY(workspace_id) REFERENCES workspaces(id)
         );
@@ -271,6 +273,7 @@ def _init_pg(conn) -> None:
             workspace_id INTEGER NOT NULL REFERENCES workspaces(id),
             name TEXT NOT NULL,
             filename TEXT NOT NULL,
+            data BYTEA,
             created_by INTEGER,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
@@ -284,6 +287,7 @@ def _init_pg(conn) -> None:
             original_name TEXT,
             bytes INTEGER NOT NULL DEFAULT 0,
             mode TEXT,
+            data BYTEA,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
         """,
@@ -338,6 +342,36 @@ def _migrate(conn) -> None:
         conn.execute(
             _q("UPDATE users SET workspace_id = ?, role = 'admin' WHERE id = ?"),
             (wid, row["id"]),
+        )
+
+    # Persist image bytes in DB — Render free disk is ephemeral and wiped on restart
+    def _table_cols(table: str) -> set[str]:
+        if USE_PG:
+            return {
+                r["column_name"]
+                for r in conn.execute(
+                    """
+                    SELECT column_name FROM information_schema.columns
+                    WHERE table_schema = 'public' AND table_name = ?
+                    """,
+                    (table,),
+                ).fetchall()
+            }
+        return {r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+
+    bd_cols = _table_cols("backdrops")
+    if bd_cols and "data" not in bd_cols:
+        conn.execute(
+            "ALTER TABLE backdrops ADD COLUMN data BYTEA"
+            if USE_PG
+            else "ALTER TABLE backdrops ADD COLUMN data BLOB"
+        )
+    ad_cols = _table_cols("adverts")
+    if ad_cols and "data" not in ad_cols:
+        conn.execute(
+            "ALTER TABLE adverts ADD COLUMN data BYTEA"
+            if USE_PG
+            else "ALTER TABLE adverts ADD COLUMN data BLOB"
         )
 
 
@@ -697,29 +731,40 @@ def workspace_owner(workspace_id: int):
 def save_backdrop(workspace_id: int, user_id: int, name: str, data: bytes) -> dict:
     bid = secrets.token_hex(8)
     safe = f"{bid}.png"
-    folder = BACKDROP_ROOT / str(workspace_id)
-    folder.mkdir(parents=True, exist_ok=True)
-    path = folder / safe
-    # Normalize to PNG via caller; write raw
-    path.write_bytes(data)
+    # Best-effort disk write for local/dev; DB blob is source of truth on Render
+    try:
+        folder = BACKDROP_ROOT / str(workspace_id)
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / safe).write_bytes(data)
+    except OSError:
+        pass
     with connect() as conn:
         cur = conn.execute(
             """
-            INSERT INTO backdrops (workspace_id, name, filename, created_by)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO backdrops (workspace_id, name, filename, data, created_by)
+            VALUES (?, ?, ?, ?, ?)
             RETURNING id
             """,
-            (workspace_id, name.strip()[:80], safe, user_id),
+            (workspace_id, name.strip()[:80], safe, data, user_id),
         )
         bid_id = _insert_id(cur)
-        row = conn.execute("SELECT * FROM backdrops WHERE id = ?", (bid_id,)).fetchone()
+        row = conn.execute(
+            """
+            SELECT id, workspace_id, name, filename, created_by, created_at
+            FROM backdrops WHERE id = ?
+            """,
+            (bid_id,),
+        ).fetchone()
         return _row(row)
 
 
 def list_backdrops(workspace_id: int) -> list[dict]:
     with connect() as conn:
         rows = conn.execute(
-            "SELECT id, name, filename, created_at FROM backdrops WHERE workspace_id = ? ORDER BY id DESC",
+            """
+            SELECT id, name, filename, created_at FROM backdrops
+            WHERE workspace_id = ? ORDER BY id DESC
+            """,
             (workspace_id,),
         ).fetchall()
         return [_row(r) for r in rows]
@@ -728,10 +773,43 @@ def list_backdrops(workspace_id: int) -> list[dict]:
 def get_backdrop(workspace_id: int, backdrop_id: int):
     with connect() as conn:
         row = conn.execute(
-            "SELECT * FROM backdrops WHERE id = ? AND workspace_id = ?",
+            """
+            SELECT id, workspace_id, name, filename, created_by, created_at
+            FROM backdrops WHERE id = ? AND workspace_id = ?
+            """,
             (backdrop_id, workspace_id),
         ).fetchone()
         return _row(row)
+
+
+def _as_bytes(blob) -> bytes | None:
+    if blob is None:
+        return None
+    if isinstance(blob, memoryview):
+        blob = blob.tobytes()
+    elif isinstance(blob, bytearray):
+        blob = bytes(blob)
+    if isinstance(blob, bytes) and blob:
+        return blob
+    return None
+
+
+def read_backdrop_bytes(workspace_id: int, backdrop_id: int) -> bytes | None:
+    with connect() as conn:
+        row = conn.execute(
+            "SELECT filename, data FROM backdrops WHERE id = ? AND workspace_id = ?",
+            (backdrop_id, workspace_id),
+        ).fetchone()
+    row = _row(row)
+    if not row:
+        return None
+    blob = _as_bytes(row.get("data"))
+    if blob:
+        return blob
+    path = backdrop_path(workspace_id, row["filename"])
+    if path.exists():
+        return path.read_bytes()
+    return None
 
 
 def backdrop_path(workspace_id: int, filename: str) -> Path:
@@ -744,7 +822,10 @@ def delete_backdrop(workspace_id: int, backdrop_id: int) -> bool:
         return False
     path = backdrop_path(workspace_id, row["filename"])
     if path.exists():
-        path.unlink()
+        try:
+            path.unlink()
+        except OSError:
+            pass
     with connect() as conn:
         conn.execute(
             "DELETE FROM backdrops WHERE id = ? AND workspace_id = ?",
@@ -772,24 +853,33 @@ def save_advert(
         raise ValueError("Storage full (1GB limit). Delete old adverts.")
     aid = secrets.token_hex(8)
     safe = f"{aid}.png"
-    folder = STORAGE_ROOT / str(workspace_id)
-    folder.mkdir(parents=True, exist_ok=True)
-    (folder / safe).write_bytes(data)
+    try:
+        folder = STORAGE_ROOT / str(workspace_id)
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / safe).write_bytes(data)
+    except OSError:
+        pass
     with connect() as conn:
         cur = conn.execute(
             """
-            INSERT INTO adverts (workspace_id, user_id, filename, original_name, bytes, mode)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO adverts (workspace_id, user_id, filename, original_name, bytes, mode, data)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             RETURNING id
             """,
-            (workspace_id, user_id, safe, original_name, len(data), mode),
+            (workspace_id, user_id, safe, original_name, len(data), mode, data),
         )
         advert_id = _insert_id(cur)
         conn.execute(
             "UPDATE workspaces SET storage_used = storage_used + ? WHERE id = ?",
             (len(data), workspace_id),
         )
-        row = conn.execute("SELECT * FROM adverts WHERE id = ?", (advert_id,)).fetchone()
+        row = conn.execute(
+            """
+            SELECT id, workspace_id, user_id, filename, original_name, bytes, mode, created_at
+            FROM adverts WHERE id = ?
+            """,
+            (advert_id,),
+        ).fetchone()
         return _row(row)
 
 
@@ -808,10 +898,31 @@ def list_adverts(workspace_id: int, limit: int = 50) -> list[dict]:
 def get_advert(workspace_id: int, advert_id: int):
     with connect() as conn:
         row = conn.execute(
-            "SELECT * FROM adverts WHERE id = ? AND workspace_id = ?",
+            """
+            SELECT id, workspace_id, user_id, filename, original_name, bytes, mode, created_at
+            FROM adverts WHERE id = ? AND workspace_id = ?
+            """,
             (advert_id, workspace_id),
         ).fetchone()
         return _row(row)
+
+
+def read_advert_bytes(workspace_id: int, advert_id: int) -> bytes | None:
+    with connect() as conn:
+        row = conn.execute(
+            "SELECT filename, data FROM adverts WHERE id = ? AND workspace_id = ?",
+            (advert_id, workspace_id),
+        ).fetchone()
+    row = _row(row)
+    if not row:
+        return None
+    blob = _as_bytes(row.get("data"))
+    if blob:
+        return blob
+    path = advert_path(workspace_id, row["filename"])
+    if path.exists():
+        return path.read_bytes()
+    return None
 
 
 def advert_path(workspace_id: int, filename: str) -> Path:
@@ -824,7 +935,10 @@ def delete_advert(workspace_id: int, advert_id: int) -> bool:
         return False
     path = advert_path(workspace_id, row["filename"])
     if path.exists():
-        path.unlink()
+        try:
+            path.unlink()
+        except OSError:
+            pass
     with connect() as conn:
         conn.execute(
             "DELETE FROM adverts WHERE id = ? AND workspace_id = ?",
@@ -841,6 +955,7 @@ def delete_advert(workspace_id: int, advert_id: int) -> bool:
                 (row["bytes"], workspace_id),
             )
     return True
+
 
 
 def save_meeting(

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import io
 import os
+import tempfile
 import zipfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -159,10 +160,17 @@ def resolve_custom_backdrop(user: Optional[dict], backdrop: str):
             bid = int(backdrop.split(":", 1)[1])
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid custom backdrop") from None
-        row = db.get_backdrop(user["workspace_id"], bid)
-        if not row:
-            raise HTTPException(status_code=404, detail="Backdrop not found")
-        custom_path = db.backdrop_path(user["workspace_id"], row["filename"])
+        raw = db.read_backdrop_bytes(user["workspace_id"], bid)
+        if not raw:
+            raise HTTPException(
+                status_code=404,
+                detail="Backdrop file missing — please re-upload (disk was cleared on server restart)",
+            )
+        # Materialize to temp file for Pillow/OpenCV pipeline
+        tmp_dir = Path(tempfile.gettempdir()) / "rcb-backdrops"
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        custom_path = tmp_dir / f"ws{user['workspace_id']}_{bid}.png"
+        custom_path.write_bytes(raw)
         key = "custom"
     return key, custom_path
 
@@ -596,11 +604,17 @@ async def upload_backdrop(
 
 @app.get("/api/backdrops/{backdrop_id}/file")
 def backdrop_file(backdrop_id: int, user: Annotated[dict, Depends(require_user)]):
-    row = db.get_backdrop(user["workspace_id"], backdrop_id)
-    if not row:
-        raise HTTPException(status_code=404, detail="Not found")
-    path = db.backdrop_path(user["workspace_id"], row["filename"])
-    return Response(content=path.read_bytes(), media_type="image/png")
+    raw = db.read_backdrop_bytes(user["workspace_id"], backdrop_id)
+    if not raw:
+        raise HTTPException(
+            status_code=404,
+            detail="Backdrop file missing — delete and re-upload (server disk reset)",
+        )
+    return Response(
+        content=raw,
+        media_type="image/png",
+        headers={"Cache-Control": "private, max-age=3600"},
+    )
 
 
 @app.delete("/api/backdrops/{backdrop_id}")
@@ -628,11 +642,17 @@ def storage_info(user: Annotated[dict, Depends(require_user)]):
 
 @app.get("/api/adverts/{advert_id}/file")
 def advert_file(advert_id: int, user: Annotated[dict, Depends(require_user)]):
-    row = db.get_advert(user["workspace_id"], advert_id)
-    if not row:
-        raise HTTPException(status_code=404, detail="Not found")
-    path = db.advert_path(user["workspace_id"], row["filename"])
-    return Response(content=path.read_bytes(), media_type="image/png")
+    raw = db.read_advert_bytes(user["workspace_id"], advert_id)
+    if not raw:
+        raise HTTPException(
+            status_code=404,
+            detail="Advert file missing — process again (server disk reset)",
+        )
+    return Response(
+        content=raw,
+        media_type="image/png",
+        headers={"Cache-Control": "private, max-age=3600"},
+    )
 
 
 @app.delete("/api/adverts/{advert_id}")
