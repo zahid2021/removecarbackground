@@ -266,6 +266,20 @@ def polish_dark_fringe_on_backdrop(img: Image.Image, backdrop_key: str) -> Image
     crumbs = is_bg & near_car & (luma < 120) & gray
     fix |= crumbs
 
+    # Any dark pixel that touches studio white (side outline / roof jag)
+    bg_touch = cv2.dilate(is_bg.astype(np.uint8), kernel, iterations=1) > 0
+    side_halo = (~is_bg) & bg_touch & upper & ((luma < 140) | ((luma < 175) & gray))
+    fix |= side_halo
+    # Tiny dark floaters under bumper (small islands in white field)
+    dark_bits = ((luma < 95) & gray).astype(np.uint8)
+    num, labels, stats, _ = cv2.connectedComponentsWithStats(dark_bits, connectivity=4)
+    for i in range(1, num):
+        area = int(stats[i, cv2.CC_STAT_AREA])
+        if area <= 0 or area > 120:
+            continue
+        # floater mostly in lower half / small crumb
+        fix |= labels == i
+
     rgba[fix, 0] = color[0]
     rgba[fix, 1] = color[1]
     rgba[fix, 2] = color[2]
