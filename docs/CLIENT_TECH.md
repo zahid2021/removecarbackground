@@ -28,6 +28,7 @@ Code: `pipeline.py`, `js/bg-client.js`, `backend.py` (`POST /api/process`).
 
 ## Landing redesign (this sprint)
 
-- Hero uses **Spline** public 3D scene embed:
-  https://my.spline.design/untitled-ChSfnYfXtduR1rffxYHPRXzd/
+- Hero uses **Spline Viewer** embed (WebGL), public scene:
+  `https://prod.spline.design/KFonZGtsoUXP-qx7/scene.splinecode`
+  (official Spline demo scene — verified rendering; empty custom exports were blank)
 - Brand-first first viewport; editor/auth/API unchanged.

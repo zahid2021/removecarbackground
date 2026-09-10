@@ -404,6 +404,9 @@ button, input, select { font: inherit; }
   display: block;
   background: #0a0e12;
 }
+spline-viewer.hero-spline-frame {
+  --background: transparent;
+}
 /* Keep CTA readable over Spline watermark / bright scenes */
 .hero-3d-shell .hero-3d-veil {
   background:

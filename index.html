@@ -15,7 +15,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=48" />
+  <link rel="stylesheet" href="css/styles.css?v=51" />
+  <script type="module" src="https://unpkg.com/@splinetool/viewer@1.9.28/build/spline-viewer.js"></script>
 </head>
 <body>
   <div class="bg-mesh" aria-hidden="true"></div>
@@ -49,14 +50,12 @@
 
   <header class="hero hero-3d-shell">
     <div class="hero-3d-stage hero-spline-stage" aria-hidden="true">
-      <iframe
+      <!-- Public Spline scene (verified WebGL render) — replaces empty user export -->
+      <spline-viewer
         class="hero-spline-frame"
-        src="https://my.spline.design/untitled-ChSfnYfXtduR1rffxYHPRXzd/"
-        title="RemoveCarBackground 3D showroom"
-        loading="eager"
-        allow="autoplay; fullscreen"
-        referrerpolicy="no-referrer-when-downgrade"
-      ></iframe>
+        url="https://prod.spline.design/KFonZGtsoUXP-qx7/scene.splinecode"
+        loading-anim-type="none"
+      ></spline-viewer>
     </div>
     <div class="hero-3d-veil" aria-hidden="true"></div>
     <div class="wrap hero-3d-copy">
@@ -745,7 +744,7 @@
   </footer>
 
   <script src="js/config.js"></script>
-  <script src="js/main.js?v=48"></script>
-  <script src="js/meet.js?v=48"></script>
+  <script src="js/main.js?v=51"></script>
+  <script src="js/meet.js?v=51"></script>
 </body>
 </html>
