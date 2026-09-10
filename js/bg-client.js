@@ -152,22 +152,19 @@
       var b = data[o + 2];
       var greenBias = g - Math.max(r, b);
       var luma = 0.299 * r + 0.587 * g + 0.114 * b;
-      if (a < 210 && greenBias > 12) {
+      if (a < 200 && greenBias > 14) {
         data[o + 3] = 0;
         continue;
       }
-      if (a < 160 && g > 85 && b > 65 && r < g - 12) {
+      if (a < 150 && g > 85 && b > 65 && r < g - 12) {
         data[o + 3] = 0;
         continue;
       }
-      if (a < 200 && luma < 38 && greenBias < 8) {
-        data[o + 3] = 0;
-        continue;
-      }
-      if (greenBias > 5) data[o + 1] = Math.max(0, g - Math.min(greenBias, 32));
-      if (data[o + 3] < 70) data[o + 3] = 0;
+      // Do not kill solid dark glass by luma — that chops Tesla/glass roofs
+      if (greenBias > 5) data[o + 1] = Math.max(0, g - Math.min(greenBias, 28));
+      if (data[o + 3] < 50) data[o + 3] = 0;
       else if (data[o + 3] < 220)
-        data[o + 3] = Math.round((data[o + 3] - 70) * (255 / 150));
+        data[o + 3] = Math.round((data[o + 3] - 50) * (255 / 170));
       else data[o + 3] = 255;
     }
 
@@ -277,34 +274,7 @@
       if (labels[i] === largest) keep[i] = 1;
     }
     keep = dilateMask(keep);
-    // Close tiny holes, then light open for dust
-    keep = dilateMask(erodeMask(dilateMask(keep)));
-    keep = erodeMask(dilateMask(keep));
-
-    // Roof spike trim vs median roof line
-    var tops = new Int32Array(w);
-    for (var x = 0; x < w; x++) {
-      tops[x] = h;
-      for (var y = 0; y < h; y++) {
-        if (keep[y * w + x]) {
-          tops[x] = y;
-          break;
-        }
-      }
-    }
-    var roofVals = [];
-    for (x = 0; x < w; x++) if (tops[x] < h) roofVals.push(tops[x]);
-    roofVals.sort(function (a, b) {
-      return a - b;
-    });
-    var medRoof = roofVals.length
-      ? roofVals[(roofVals.length / 2) | 0]
-      : 0;
-    for (x = 0; x < w; x++) {
-      if (tops[x] < h && tops[x] < medRoof - 8) {
-        for (y = 0; y < medRoof - 1; y++) keep[y * w + x] = 0;
-      }
-    }
+    // Close tiny holes only — do NOT roof-trim (that chops glass roofs / chat)
 
     // Soft AA edge (box blur of mask) instead of hard binary matte
     var soft = new Float32Array(n);
@@ -326,10 +296,9 @@
         blur[y2 * w + x2] = sum / cnt;
       }
     }
-    var core = erodeMask(keep);
     for (i = 0; i < n; i++) {
-      var aa = core[i] ? 255 : Math.round(blur[i]);
-      if (aa < 18) {
+      var aa = keep[i] ? Math.max(220, Math.round(blur[i])) : Math.round(blur[i]);
+      if (aa < 16 || !keep[i]) {
         data[i * 4] = 0;
         data[i * 4 + 1] = 0;
         data[i * 4 + 2] = 0;

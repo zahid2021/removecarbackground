@@ -75,7 +75,7 @@ def cutout(img: Image.Image) -> Image.Image:
     work.convert("RGBA").save(buf, format="PNG", optimize=True)
     raw = buf.getvalue()
     buf.close()
-    out = remove(raw, session=session, alpha_matting=False, post_process_mask=True)
+    out = remove(raw, session=session, alpha_matting=False, post_process_mask=False)
     del raw
     result = Image.open(io.BytesIO(out)).convert("RGBA")
     del out
@@ -87,7 +87,7 @@ def cutout(img: Image.Image) -> Image.Image:
 
 
 def dealer_cleanup(cut: Image.Image) -> Image.Image:
-    """Keep largest car blob; strip thin dark fringe only (never eat glass/roof)."""
+    """Keep largest car blob only. No roof-flattening / dark-glass eating."""
     try:
         import cv2
     except ImportError:
@@ -103,20 +103,18 @@ def dealer_cleanup(cut: Image.Image) -> Image.Image:
     b = rgba[:, :, 2].astype(np.float32)
 
     green_bias = g - np.maximum(r, b)
-    luma = 0.299 * r + 0.587 * g + 0.114 * b
-    # Only kill WEAK-alpha fringe — never punch solid dark glass/tyres (high alpha)
+    # Weak-alpha / green fringe only — never remove solid dark glass/tyres
     kill = (
-        (alpha < 28)
-        | ((alpha < 190) & (green_bias > 14))
-        | ((alpha < 150) & (g > 85) & (b > 65) & (r < g - 12))
-        | ((alpha < 160) & (luma < 45))
+        (alpha < 24)
+        | ((alpha < 170) & (green_bias > 16))
+        | ((alpha < 130) & (g > 90) & (b > 70) & (r < g - 14))
     )
     alpha = np.where(kill, 0, alpha)
-    alpha = np.where(alpha < 60, 0, alpha)
-    soft = (alpha >= 60) & (alpha < 220)
-    alpha = np.where(soft, (alpha - 60) * (255.0 / 160.0), alpha)
-    alpha = np.where(alpha >= 220, 255, alpha)
-    g2 = np.where(green_bias > 5, np.maximum(0, g - np.minimum(green_bias, 28)), g)
+    alpha = np.where(alpha < 50, 0, alpha)
+    soft = (alpha >= 50) & (alpha < 230)
+    alpha = np.where(soft, (alpha - 50) * (255.0 / 180.0), alpha)
+    alpha = np.where(alpha >= 230, 255, alpha)
+    g2 = np.where(green_bias > 8, np.maximum(0, g - np.minimum(green_bias, 22)), g)
     rgba[:, :, 1] = g2.astype(np.uint8)
     rgba[:, :, 3] = alpha.astype(np.uint8)
 
@@ -135,111 +133,20 @@ def dealer_cleanup(cut: Image.Image) -> Image.Image:
     keep = (labels == largest).astype(np.uint8)
     keep = cv2.dilate(keep, kernel, iterations=1)
     keep = cv2.morphologyEx(keep, cv2.MORPH_CLOSE, kernel, iterations=2)
-    keep = cv2.morphologyEx(keep, cv2.MORPH_OPEN, np.ones((2, 2), np.uint8), iterations=1)
 
-    # Thin roof spikes only (trees) — do NOT flatten a real glass roof line
-    tops = []
-    for x in range(w):
-        col = keep[:, x]
-        ys = np.flatnonzero(col)
-        tops.append(int(ys[0]) if ys.size else h)
-    roof_vals = [t for t in tops if t < h]
-    if roof_vals:
-        med = int(np.median(roof_vals))
-        for x, t in enumerate(tops):
-            if t >= h or t >= med - 14:
-                continue
-            # require a narrow spike (neighbours closer to median)
-            left = tops[x - 1] if x > 0 else med
-            right = tops[x + 1] if x + 1 < w else med
-            if left <= med - 6 and right <= med - 6:
-                continue  # wide raised region = real roof / spoiler
-            keep[: max(0, med - 2), x] = 0
-
-    keep = _strip_dark_silhouette_halo(keep, luma)
-
+    # Soft AA — do not erode the silhouette (that chops roof/mirrors)
     edge = keep.astype(np.float32) * 255.0
-    edge = cv2.GaussianBlur(edge, (0, 0), sigmaX=0.6)
-    core = cv2.erode(keep, kernel, iterations=1).astype(bool)
-    edge = np.where(core, 255.0, edge)
+    edge = cv2.GaussianBlur(edge, (0, 0), sigmaX=0.55)
+    edge = np.where(keep > 0, np.maximum(edge, 220), edge)
     edge = np.clip(edge, 0, 255)
 
-    mask = edge > 8
-    rgba[~mask] = 0
-    rgba[mask, 3] = edge[mask].astype(np.uint8)
-    faint = rgba[:, :, 3] < 20
-    rgba[faint] = 0
-    return Image.fromarray(rgba, "RGBA")
-
-
-def _strip_dark_silhouette_halo(keep: np.ndarray, luma: np.ndarray) -> np.ndarray:
-    """Remove thin dark bg-bleed on white paint edges — never eat glass/windows."""
-    import cv2
-
-    keep = keep.astype(np.uint8)
-    if int(keep.max()) == 0:
-        return keep
-    kernel = np.ones((3, 3), np.uint8)
-    # Only a thin outer band (≈2px)
-    outside = (1 - keep).astype(np.uint8)
-    band = (keep > 0) & (cv2.dilate(outside, kernel, iterations=2) > 0)
-
-    # Bright paint that continues inward — fringe sits next to THIS, glass does not
-    inner = cv2.erode(keep, kernel, iterations=3)
-    bright_core = (inner > 0) & (luma > 160)
-    near_paint = cv2.dilate(bright_core.astype(np.uint8), kernel, iterations=2) > 0
-
-    gray = True  # luma-only is enough with paint test
-    halo = band & near_paint & (luma < 95)
-    keep = keep.copy()
-    keep[halo] = 0
-    return keep
-
-
-def polish_dark_fringe_on_backdrop(img: Image.Image, backdrop_key: str) -> Image.Image:
-    """Paint thin dark crumbs on studio white — preserve dark glass/tyres."""
-    try:
-        import cv2
-    except ImportError:
-        return img
-
-    color = BACKDROPS.get(backdrop_key, BACKDROPS["studio-white"])
-    if color is None:
-        return img
-
-    rgba = np.array(img.convert("RGBA"))
-    r = rgba[:, :, 0].astype(np.float32)
-    g = rgba[:, :, 1].astype(np.float32)
-    b = rgba[:, :, 2].astype(np.float32)
-    luma = 0.299 * r + 0.587 * g + 0.114 * b
-    bg = np.array(color, dtype=np.float32)
-    dist = np.abs(r - bg[0]) + np.abs(g - bg[1]) + np.abs(b - bg[2])
-    is_bg = dist < 40
-    car = (~is_bg).astype(np.uint8)
-    kernel = np.ones((3, 3), np.uint8)
-
-    # Thin rim only (≈3px) — deep erode was eating glass roofs
-    inner = cv2.erode(car, kernel, iterations=3)
-    rim = (car > 0) & (inner == 0)
-
-    bright_core = (inner > 0) & (luma > 160)
-    near_paint = cv2.dilate(bright_core.astype(np.uint8), kernel, iterations=2) > 0
-    near_bg = cv2.dilate(is_bg.astype(np.uint8), kernel, iterations=2) > 0
-
-    # Dark fringe next to white paint + studio field (not glass continuing inward)
-    fix = rim & near_bg & near_paint & (luma < 100)
-
-    # Specks floating in the white field (not on the car)
-    near_car = cv2.dilate(car, kernel, iterations=2) > 0
-    gray = (np.abs(r - g) < 30) & (np.abs(g - b) < 30)
-    crumbs = is_bg & near_car & (luma < 90) & gray
-    fix |= crumbs
-
-    rgba[fix, 0] = color[0]
-    rgba[fix, 1] = color[1]
-    rgba[fix, 2] = color[2]
-    rgba[fix, 3] = 255
-    return Image.fromarray(rgba, "RGBA")
+    mask = edge > 10
+    out = rgba.copy()
+    out[~mask] = 0
+    out[mask, 3] = edge[mask].astype(np.uint8)
+    faint = out[:, :, 3] < 16
+    out[faint] = 0
+    return Image.fromarray(out, "RGBA")
 
 
 def frame_cutout(subject: Image.Image, backdrop_key: str, custom_path: Optional[Path] = None) -> Image.Image:
@@ -463,9 +370,7 @@ def process_car_image(
         # Full-cut: center car on studio canvas (MotorCut-style framing)
         result = frame_cutout(subject, backdrop, custom_backdrop_path)
 
-    # Light polish only — multi-pass was chopping dark glass roofs
-    if not custom_backdrop_path:
-        result = polish_dark_fringe_on_backdrop(result, backdrop)
+    # (backdrop polish disabled — it was chopping glass roofs / chat)
 
     del original, subject
     gc.collect()
