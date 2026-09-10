@@ -28,5 +28,6 @@ Code: `pipeline.py`, `js/bg-client.js`, `backend.py` (`POST /api/process`).
 
 ## Landing redesign (this sprint)
 
-- Hero updated to **interactive 3D showroom stage** (Three.js) — depth floor, floating cutout car, pointer parallax.
-- Brand-first first viewport; same red accent; editor/auth/API unchanged.
+- Hero uses **Spline** public 3D scene embed:
+  https://my.spline.design/untitled-ChSfnYfXtduR1rffxYHPRXzd/
+- Brand-first first viewport; editor/auth/API unchanged.
