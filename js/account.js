@@ -153,7 +153,7 @@
             i.email +
             " (" +
             i.role +
-            ") — <a href='/invite.html?token=" +
+            ") — <a href='/invite?token=" +
             i.token +
             "'>link</a></li>"
           );

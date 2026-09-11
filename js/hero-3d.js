@@ -1,6 +1,6 @@
 /**
  * Landing hero — lightweight Three.js 3D stage (car billboard + showroom floor).
- * Loaded only on index.html. Falls back silently if WebGL unavailable.
+ * Loaded only on /. Falls back silently if WebGL unavailable.
  */
 (function () {
   const stage = document.getElementById("hero3d");

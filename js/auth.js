@@ -215,14 +215,14 @@
         if (res.ok && json.token) {
           await rememberAccount(email, password, json.user);
           saveSession(json.token, json.user);
-          window.location.href = "account.html";
+          window.location.href = "/account";
           return;
         }
         // API wiped users on free sleep — fall back to this browser's vault
         var local = await loginLocal(email, password);
         if (local) {
           saveSession(local.token, local.user);
-          window.location.href = "account.html";
+          window.location.href = "/account";
           return;
         }
         throw new Error(errDetail(json, "Invalid email or password"));
@@ -232,7 +232,7 @@
           var local2 = await loginLocal(email, password);
           if (local2) {
             saveSession(local2.token, local2.user);
-            window.location.href = "account.html";
+            window.location.href = "/account";
             return;
           }
         } catch (e2) {
@@ -274,7 +274,7 @@
           if (json.api_key) {
             localStorage.setItem("rcb_api_key_once", json.api_key);
           }
-          window.location.href = "account.html";
+          window.location.href = "/account";
           return;
         }
         // If email already on dead API / API down — create durable local account
@@ -290,7 +290,7 @@
           var existingLocal = await loginLocal(email, password);
           if (existingLocal) {
             saveSession(existingLocal.token, existingLocal.user);
-            window.location.href = "account.html";
+            window.location.href = "/account";
             return;
           }
           throw new Error(detail || "Signup failed");
@@ -300,7 +300,7 @@
         var localTok =
           "local." + b64(crypto.getRandomValues(new Uint8Array(24)));
         saveSession(localTok, user);
-        window.location.href = "account.html";
+        window.location.href = "/account";
       } catch (err) {
         try {
           var user2 = localUserFromSignup(data);
@@ -309,7 +309,7 @@
             "local." + b64(crypto.getRandomValues(new Uint8Array(24))),
             user2
           );
-          window.location.href = "account.html";
+          window.location.href = "/account";
           return;
         } catch (e2) {
           /* fall through */
@@ -325,7 +325,7 @@
     (async function () {
       var user = await window.RCB.refreshMe();
       if (!user) {
-        window.location.href = "login.html";
+        window.location.href = "/login";
         return;
       }
       userName.textContent = user.name || "Dealer";
@@ -391,7 +391,7 @@
     logoutBtn.addEventListener("click", function (e) {
       e.preventDefault();
       clearSession();
-      window.location.href = "index.html";
+      window.location.href = "/";
     });
   }
 

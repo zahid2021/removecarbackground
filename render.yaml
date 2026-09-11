@@ -62,10 +62,49 @@ services:
       - removecarbackground.com
       - www.removecarbackground.com
     routes:
-      # Old batch URL → homepage only (public URL stays https://removecarbackground.com/)
+      # Old .html bookmarks → clean paths (no .html in public URLs)
       - type: redirect
         source: /transformer.html
         destination: /
       - type: redirect
         source: /transformer
         destination: /
+      - type: redirect
+        source: /index.html
+        destination: /
+      - type: redirect
+        source: /account.html
+        destination: /account
+      - type: redirect
+        source: /editor.html
+        destination: /editor
+      - type: redirect
+        source: /login.html
+        destination: /login
+      - type: redirect
+        source: /signup.html
+        destination: /signup
+      - type: redirect
+        source: /examples.html
+        destination: /examples
+      - type: redirect
+        source: /blog.html
+        destination: /blog
+      - type: redirect
+        source: /meet.html
+        destination: /meet
+      - type: redirect
+        source: /contact.html
+        destination: /contact
+      - type: redirect
+        source: /invite.html
+        destination: /invite
+      - type: redirect
+        source: /privacy.html
+        destination: /privacy
+      - type: redirect
+        source: /terms.html
+        destination: /terms
+      - type: redirect
+        source: /disclaimer.html
+        destination: /disclaimer

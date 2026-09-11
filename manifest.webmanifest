@@ -2,7 +2,7 @@
   "name": "RemoveCarBackground",
   "short_name": "RCB",
   "description": "AI car background removal — Half-Cut, Full-Cut, plate cover, upscale",
-  "start_url": "/editor.html",
+  "start_url": "/editor",
   "display": "standalone",
   "background_color": "#f4f2ef",
   "theme_color": "#c4121a",
