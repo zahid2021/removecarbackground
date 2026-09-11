@@ -86,11 +86,91 @@ def cutout(img: Image.Image) -> Image.Image:
     return result
 
 
+def marketplace_defringe(rgba: np.ndarray) -> np.ndarray:
+    """
+    Kill white/light halo around dark cars on pure white marketplace backdrops.
+    Contracts the matte 1px and strips light fringe near the silhouette edge.
+    """
+    if rgba.ndim != 3 or rgba.shape[2] != 4:
+        return rgba
+    alpha = rgba[:, :, 3].astype(np.float32)
+    r = rgba[:, :, 0].astype(np.float32)
+    g = rgba[:, :, 1].astype(np.float32)
+    b = rgba[:, :, 2].astype(np.float32)
+    luma = 0.299 * r + 0.587 * g + 0.114 * b
+    solid = (alpha >= 100).astype(np.uint8)
+    if int(solid.sum()) < 200:
+        return rgba
+
+    out = rgba.copy()
+    try:
+        import cv2
+
+        k = np.ones((3, 3), np.uint8)
+        core = cv2.erode(solid, k, iterations=1)
+        # Light pixels on the outer ring = classic rembg halo
+        ring = (solid > 0) & (core == 0)
+        # Also kill light gray sitting next to background
+        near_bg = cv2.dilate((1 - solid).astype(np.uint8), k, iterations=2) > 0
+        light = (
+            (alpha > 0)
+            & near_bg
+            & (luma > 118)
+            & (np.abs(r - g) < 45)
+            & (np.abs(g - b) < 45)
+        )
+        kill = ring | light
+        out[kill] = 0
+
+        # Rebuild soft edge from contracted core (no white bleed)
+        keep = (out[:, :, 3] >= 100).astype(np.uint8)
+        keep = cv2.morphologyEx(keep, cv2.MORPH_CLOSE, k, iterations=1)
+        soft = cv2.GaussianBlur(keep.astype(np.float32) * 255.0, (0, 0), 0.45)
+        soft = np.where(keep > 0, np.maximum(soft, 235), soft)
+        soft = np.clip(soft, 0, 255)
+        out[keep == 0] = 0
+        out[:, :, 3] = soft.astype(np.uint8)
+        out[out[:, :, 3] < 18] = 0
+        return out
+    except ImportError:
+        # Numpy-only 1px erode
+        h, w = solid.shape
+        core = solid.copy()
+        for y in range(1, h - 1):
+            for x in range(1, w - 1):
+                if not solid[y, x]:
+                    continue
+                if not (
+                    solid[y, x - 1]
+                    and solid[y, x + 1]
+                    and solid[y - 1, x]
+                    and solid[y + 1, x]
+                ):
+                    core[y, x] = 0
+        ring = (solid > 0) & (core == 0)
+        light = (alpha > 0) & (luma > 118) & (np.abs(r - g) < 45) & (np.abs(g - b) < 45)
+        # light only if any transparent neighbor
+        for y in range(1, h - 1):
+            for x in range(1, w - 1):
+                if not light[y, x]:
+                    continue
+                if (
+                    solid[y, x - 1]
+                    and solid[y, x + 1]
+                    and solid[y - 1, x]
+                    and solid[y + 1, x]
+                ):
+                    light[y, x] = False
+        out[ring | light] = 0
+        out[core == 0] = 0
+        return out
+
+
 def strip_antenna_spikes(keep: np.ndarray) -> np.ndarray:
     """
     Remove thin roof antennas / whip masts that rembg often leaves as a
     1–few-pixel vertical stick. Safe for all cars/SUVs/Jeeps — wide roof
-    racks and spoilers are kept (run wider than ~2.5% of car width).
+    racks and spoilers are kept (run wider than ~3.5% of car width).
     """
     h, w = keep.shape
     if h < 32 or w < 32:
@@ -107,25 +187,24 @@ def strip_antenna_spikes(keep: np.ndarray) -> np.ndarray:
         return keep
 
     # Robust roof line — antennas are outliers above the roof (smaller y)
-    roof = int(np.percentile(top[valid], 35))
-    max_spike_w = max(4, int(w * 0.028))
-    min_spike_h = max(12, int(h * 0.04))
+    roof = int(np.percentile(top[valid], 40))
+    max_spike_w = max(6, int(w * 0.04))  # catch slightly thicker masts
+    min_spike_h = max(8, int(h * 0.028))
     out = keep.copy()
 
     x = 0
     while x < w:
-        if (not valid[x]) or top[x] >= roof - (min_spike_h // 2):
+        if (not valid[x]) or top[x] >= roof - max(3, min_spike_h // 3):
             x += 1
             continue
         x0 = x
-        while x < w and valid[x] and top[x] < roof - (min_spike_h // 2):
+        while x < w and valid[x] and top[x] < roof - max(3, min_spike_h // 3):
             x += 1
         x1 = x
         run_w = x1 - x0
         spike_h = roof - int(top[x0:x1].min())
         if run_w <= max_spike_w and spike_h >= min_spike_h:
-            # Clear only the thin mast above the roof line
-            out[: max(0, roof), x0:x1] = 0
+            out[: max(0, roof + 1), x0:x1] = 0
     return out
 
 
@@ -330,6 +409,7 @@ def dealer_cleanup(cut: Image.Image) -> Image.Image:
 
     faint = out[:, :, 3] < 18
     out[faint] = 0
+    out = marketplace_defringe(out)
     return Image.fromarray(out, "RGBA")
 
 
@@ -368,7 +448,8 @@ def add_contact_shadow(
     layer = layer.filter(ImageFilter.GaussianBlur(radius=max(3, sw // 40)))
 
     sx = ox + left + (foot_w - sw) // 2
-    sy = oy + bottom - sh // 3
+    # Sit under tire contact so the car doesn't look floating
+    sy = oy + bottom - max(2, sh // 5)
     canvas.alpha_composite(layer, (max(0, sx), max(0, sy)))
 
 

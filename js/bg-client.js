@@ -318,19 +318,23 @@
       tops.sort(function (a, b) {
         return a - b;
       });
-      var roof = tops[(tops.length * 0.35) | 0];
-      var maxSpikeW = Math.max(4, (w * 0.028) | 0);
-      var minSpikeH = Math.max(12, (h * 0.04) | 0);
+      var roof = tops[(tops.length * 0.4) | 0];
+      var maxSpikeW = Math.max(6, (w * 0.04) | 0);
+      var minSpikeH = Math.max(8, (h * 0.028) | 0);
       var out = new Uint8Array(mask);
       x = 0;
       while (x < w) {
-        if (topY[x] >= h || topY[x] >= roof - ((minSpikeH / 2) | 0)) {
+        if (topY[x] >= h || topY[x] >= roof - Math.max(3, (minSpikeH / 3) | 0)) {
           x++;
           continue;
         }
         var x0 = x;
         var minTop = topY[x];
-        while (x < w && topY[x] < h && topY[x] < roof - ((minSpikeH / 2) | 0)) {
+        while (
+          x < w &&
+          topY[x] < h &&
+          topY[x] < roof - Math.max(3, (minSpikeH / 3) | 0)
+        ) {
           if (topY[x] < minTop) minTop = topY[x];
           x++;
         }
@@ -338,7 +342,7 @@
         var spikeH = roof - minTop;
         if (runW <= maxSpikeW && spikeH >= minSpikeH) {
           for (var xx = x0; xx < x; xx++) {
-            for (var yy = 0; yy < roof; yy++) out[yy * w + xx] = 0;
+            for (var yy = 0; yy <= roof; yy++) out[yy * w + xx] = 0;
           }
         }
       }
@@ -481,6 +485,52 @@
         data[i * 4 + 3] = aa;
       }
     }
+
+    // Marketplace defringe: strip white/light halo on silhouette edge
+    var solid2 = new Uint8Array(n);
+    for (i = 0; i < n; i++) solid2[i] = data[i * 4 + 3] >= 100 ? 1 : 0;
+    var core = erodeMask(solid2);
+    for (i = 0; i < n; i++) {
+      if (!solid2[i]) continue;
+      var px = i % w;
+      var py = (i / w) | 0;
+      var rr = data[i * 4];
+      var gg = data[i * 4 + 1];
+      var bb = data[i * 4 + 2];
+      var lu = 0.299 * rr + 0.587 * gg + 0.114 * bb;
+      var onRing = !core[i];
+      var nearBg = false;
+      if (px > 0 && !solid2[i - 1]) nearBg = true;
+      if (px < w - 1 && !solid2[i + 1]) nearBg = true;
+      if (py > 0 && !solid2[i - w]) nearBg = true;
+      if (py < h - 1 && !solid2[i + w]) nearBg = true;
+      if (
+        onRing ||
+        (nearBg &&
+          lu > 118 &&
+          Math.abs(rr - gg) < 45 &&
+          Math.abs(gg - bb) < 45)
+      ) {
+        data[i * 4] = 0;
+        data[i * 4 + 1] = 0;
+        data[i * 4 + 2] = 0;
+        data[i * 4 + 3] = 0;
+      }
+    }
+    // Rebuild soft edge from contracted core
+    for (i = 0; i < n; i++) solid2[i] = data[i * 4 + 3] >= 100 ? 1 : 0;
+    core = erodeMask(dilateMask(solid2));
+    for (i = 0; i < n; i++) {
+      if (!core[i] && data[i * 4 + 3] > 0) {
+        // keep only if still solid after light ring kill; drop soft fringe
+        if (!solid2[i]) {
+          data[i * 4] = 0;
+          data[i * 4 + 1] = 0;
+          data[i * 4 + 2] = 0;
+          data[i * 4 + 3] = 0;
+        }
+      }
+    }
   }
 
   /** Clean marketplace oval shadow under tires (no gray smear bar). */
@@ -504,7 +554,7 @@
       var sw = Math.max(20, Math.round(footW * 0.92));
       var sh = Math.max(10, Math.round(ch * 0.07));
       var cx = ox + left + footW / 2;
-      var cy = oy + bottom - sh / 6;
+      var cy = oy + bottom - Math.max(2, sh / 5);
       ctx.save();
       if (typeof ctx.filter === "string") {
         ctx.filter = "blur(" + Math.max(4, Math.round(sw * 0.04)) + "px)";
