@@ -314,8 +314,77 @@
     }
   }
 
+  /** Soft marketplace contact shadow under the car (white-studio listing look). */
+  function drawContactShadow(ctx, srcCanvas, minX, minY, cw, ch, ox, oy) {
+    try {
+      var sctx = srcCanvas.getContext("2d", { willReadFrequently: true });
+      var id = sctx.getImageData(minX, minY, cw, ch);
+      var data = id.data;
+      var sil = document.createElement("canvas");
+      sil.width = cw;
+      sil.height = ch;
+      var silCtx = sil.getContext("2d");
+      var silData = silCtx.createImageData(cw, ch);
+      for (var i = 0; i < cw * ch; i++) {
+        var a = data[i * 4 + 3];
+        if (a < 20) continue;
+        silData.data[i * 4] = 0;
+        silData.data[i * 4 + 1] = 0;
+        silData.data[i * 4 + 2] = 0;
+        silData.data[i * 4 + 3] = Math.min(160, Math.round(a * 0.65));
+      }
+      silCtx.putImageData(silData, 0, 0);
+
+      var softW = Math.max(16, Math.round(cw * 1.08));
+      var softH = Math.max(10, Math.round(ch * 0.14));
+      var soft = document.createElement("canvas");
+      soft.width = softW;
+      soft.height = softH;
+      var softCtx = soft.getContext("2d");
+      softCtx.filter = "blur(" + Math.max(6, Math.round(cw * 0.035)) + "px)";
+      softCtx.drawImage(sil, 0, 0, softW, softH);
+      ctx.drawImage(
+        soft,
+        ox + ((cw - softW) / 2) | 0,
+        oy + ((ch * 0.86) | 0)
+      );
+
+      var tightW = Math.max(12, Math.round(cw * 0.78));
+      var tightH = Math.max(6, Math.round(ch * 0.05));
+      var tight = document.createElement("canvas");
+      tight.width = tightW;
+      tight.height = tightH;
+      var tctx = tight.getContext("2d");
+      tctx.filter = "blur(" + Math.max(3, Math.round(cw * 0.018)) + "px)";
+      tctx.drawImage(sil, 0, 0, tightW, tightH);
+      ctx.drawImage(
+        tight,
+        ox + ((cw - tightW) / 2) | 0,
+        oy + ((ch * 0.93) | 0)
+      );
+    } catch (e) {
+      var cx = ox + cw / 2;
+      var cy = oy + ch * 0.92;
+      var rx = cw * 0.42;
+      var ry = Math.max(8, ch * 0.055);
+      ctx.save();
+      if (typeof ctx.filter === "string") {
+        ctx.filter = "blur(" + Math.max(6, Math.round(cw * 0.02)) + "px)";
+      }
+      ctx.fillStyle = "rgba(0,0,0,0.28)";
+      ctx.beginPath();
+      if (typeof ctx.ellipse === "function") {
+        ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+      } else {
+        ctx.arc(cx, cy, rx, 0, Math.PI * 2);
+      }
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
   /** Tight crop car, then center on dealer canvas (fixes tiny lower-right car). */
-  async function frameCutout(cutoutBlob, backdropKey) {
+  async function frameCutout(cutoutBlob, backdropKey, withShadow) {
     var img = await loadImage(cutoutBlob);
     var src = canvasFromImage(img);
     var ctx = src.getContext("2d", { willReadFrequently: true });
@@ -347,8 +416,9 @@
     var cw = maxX - minX + 1;
     var ch = maxY - minY + 1;
 
+    // Extra bottom padding for marketplace contact shadow
     var outW = Math.max(cw + 80, Math.round(cw * 1.35));
-    var outH = Math.max(ch + 80, Math.round(ch * 1.25));
+    var outH = Math.max(ch + 110, Math.round(ch * 1.34));
     var out = document.createElement("canvas");
     out.width = outW;
     out.height = outH;
@@ -361,7 +431,10 @@
       octx.fillRect(0, 0, outW, outH);
     }
     var ox = ((outW - cw) / 2) | 0;
-    var oy = ((outH - ch) * 0.55) | 0;
+    var oy = ((outH - ch) * 0.48) | 0;
+    if (withShadow !== false) {
+      drawContactShadow(octx, src, minX, minY, cw, ch, ox, oy);
+    }
     octx.drawImage(src, minX, minY, cw, ch, ox, oy, cw, ch);
     return blobFromCanvas(out, "image/png");
   }
@@ -531,7 +604,12 @@
     // Center-crop car onto dealer canvas (MotorCut-style framing)
     var framed = cutoutBlob;
     try {
-      framed = await frameCutout(cutoutBlob, mode === "half" ? "checker" : backdrop);
+      // Full-cut: marketplace contact shadow. Half-cut keeps real floor shadows.
+      framed = await frameCutout(
+        cutoutBlob,
+        mode === "half" ? "checker" : backdrop,
+        mode !== "half"
+      );
     } catch (e) {
       framed = cutoutBlob;
     }

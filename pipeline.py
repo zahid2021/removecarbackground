@@ -149,6 +149,44 @@ def dealer_cleanup(cut: Image.Image) -> Image.Image:
     return Image.fromarray(out, "RGBA")
 
 
+def add_contact_shadow(
+    canvas: Image.Image,
+    subject: Image.Image,
+    ox: int,
+    oy: int,
+) -> None:
+    """Soft ground / contact shadow so the car sits on the floor (marketplace look)."""
+    cw, ch = subject.size
+    if cw < 8 or ch < 8:
+        return
+    alpha = subject.split()[-1]
+    # Black silhouette from car alpha
+    sil = Image.new("RGBA", (cw, ch), (0, 0, 0, 0))
+    sil.paste(Image.new("RGBA", (cw, ch), (0, 0, 0, 150)), (0, 0), alpha)
+
+    # Wide soft oval under the chassis
+    soft_w = max(16, int(cw * 1.08))
+    soft_h = max(10, int(ch * 0.14))
+    soft = sil.resize((soft_w, soft_h), Image.Resampling.LANCZOS)
+    soft = soft.filter(ImageFilter.GaussianBlur(radius=max(6, cw // 28)))
+    sx = ox + (cw - soft_w) // 2
+    sy = oy + int(ch * 0.86)
+    canvas.alpha_composite(soft, (sx, sy))
+
+    # Tighter darker contact under tires
+    tight_w = max(12, int(cw * 0.78))
+    tight_h = max(6, int(ch * 0.05))
+    tight = sil.resize((tight_w, tight_h), Image.Resampling.LANCZOS)
+    # Slightly stronger
+    r, g, b, a = tight.split()
+    a = a.point(lambda v: min(255, int(v * 1.25)))
+    tight = Image.merge("RGBA", (r, g, b, a))
+    tight = tight.filter(ImageFilter.GaussianBlur(radius=max(3, cw // 55)))
+    tx = ox + (cw - tight_w) // 2
+    ty = oy + int(ch * 0.93)
+    canvas.alpha_composite(tight, (tx, ty))
+
+
 def frame_cutout(subject: Image.Image, backdrop_key: str, custom_path: Optional[Path] = None) -> Image.Image:
     """Tight crop car, then center on a dealer-style canvas (fixes tiny corner cars)."""
     bbox = subject.split()[-1].getbbox()
@@ -165,11 +203,13 @@ def frame_cutout(subject: Image.Image, backdrop_key: str, custom_path: Optional[
     cropped = subject.crop((x0, y0, x1, y1))
     cw, ch = cropped.size
 
+    # Extra bottom room for marketplace contact shadow
     out_w = max(cw + 80, int(cw * 1.35))
-    out_h = max(ch + 80, int(ch * 1.25))
+    out_h = max(ch + 110, int(ch * 1.34))
     canvas = _backdrop_canvas((out_w, out_h), backdrop_key, custom_path)
     ox = (out_w - cw) // 2
-    oy = int((out_h - ch) * 0.55)
+    oy = int((out_h - ch) * 0.48)
+    add_contact_shadow(canvas, cropped, ox, oy)
     canvas.paste(cropped, (ox, oy), cropped)
     return canvas
 
@@ -192,6 +232,7 @@ def composite(
     custom_path: Optional[Path] = None,
 ) -> Image.Image:
     bg = _backdrop_canvas(cut.size, backdrop_key, custom_path)
+    add_contact_shadow(bg, cut, 0, 0)
     bg.paste(cut, (0, 0), cut)
     return bg
 
