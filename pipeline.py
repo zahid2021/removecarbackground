@@ -86,8 +86,81 @@ def cutout(img: Image.Image) -> Image.Image:
     return result
 
 
+def strip_antenna_spikes(keep: np.ndarray) -> np.ndarray:
+    """
+    Remove thin roof antennas / whip masts that rembg often leaves as a
+    1–few-pixel vertical stick. Safe for all cars/SUVs/Jeeps — wide roof
+    racks and spoilers are kept (run wider than ~2.5% of car width).
+    """
+    h, w = keep.shape
+    if h < 32 or w < 32:
+        return keep
+
+    top = np.full(w, h, dtype=np.int32)
+    for x in range(w):
+        ys = np.flatnonzero(keep[:, x] > 0)
+        if ys.size:
+            top[x] = int(ys[0])
+
+    valid = top < h
+    if int(valid.sum()) < 12:
+        return keep
+
+    # Robust roof line — antennas are outliers above the roof (smaller y)
+    roof = int(np.percentile(top[valid], 35))
+    max_spike_w = max(4, int(w * 0.028))
+    min_spike_h = max(12, int(h * 0.04))
+    out = keep.copy()
+
+    x = 0
+    while x < w:
+        if (not valid[x]) or top[x] >= roof - (min_spike_h // 2):
+            x += 1
+            continue
+        x0 = x
+        while x < w and valid[x] and top[x] < roof - (min_spike_h // 2):
+            x += 1
+        x1 = x
+        run_w = x1 - x0
+        spike_h = roof - int(top[x0:x1].min())
+        if run_w <= max_spike_w and spike_h >= min_spike_h:
+            # Clear only the thin mast above the roof line
+            out[: max(0, roof), x0:x1] = 0
+    return out
+
+
+def strip_thin_islands(solid: np.ndarray) -> np.ndarray:
+    """Drop tiny leftover islands (antenna tips, dust) after main car keep."""
+    try:
+        import cv2
+    except ImportError:
+        return solid
+    h, w = solid.shape
+    num, labels, stats, _ = cv2.connectedComponentsWithStats(solid.astype(np.uint8), connectivity=8)
+    if num <= 2:
+        return solid
+    areas = stats[1:, cv2.CC_STAT_AREA]
+    largest = 1 + int(np.argmax(areas))
+    min_keep = max(80, int(areas.max() * 0.002))
+    out = np.zeros_like(solid)
+    for i in range(1, num):
+        area = int(stats[i, cv2.CC_STAT_AREA])
+        bw = int(stats[i, cv2.CC_STAT_WIDTH])
+        bh = int(stats[i, cv2.CC_STAT_HEIGHT])
+        if i == largest:
+            out[labels == i] = 1
+            continue
+        # Tall skinny leftover (antenna tip) or dust speck
+        if area < min_keep or (bw <= max(3, int(w * 0.02)) and bh > bw * 4):
+            continue
+        if area < int(areas.max() * 0.01):
+            continue
+        out[labels == i] = 1
+    return out
+
+
 def dealer_cleanup(cut: Image.Image) -> Image.Image:
-    """Keep largest car blob only. No roof-flattening / dark-glass eating."""
+    """Keep largest car blob only; strip antennas; no roof-flattening / dark-glass eating."""
     try:
         import cv2
     except ImportError:
@@ -133,6 +206,12 @@ def dealer_cleanup(cut: Image.Image) -> Image.Image:
     keep = (labels == largest).astype(np.uint8)
     keep = cv2.dilate(keep, kernel, iterations=1)
     keep = cv2.morphologyEx(keep, cv2.MORPH_CLOSE, kernel, iterations=2)
+
+    # Antennas / whip masts on every car & Jeep
+    keep = strip_antenna_spikes(keep)
+    keep = strip_thin_islands(keep)
+    # One more pass after islands (spike can detach)
+    keep = strip_antenna_spikes(keep)
 
     # Soft AA — do not erode the silhouette (that chops roof/mirrors)
     edge = keep.astype(np.float32) * 255.0

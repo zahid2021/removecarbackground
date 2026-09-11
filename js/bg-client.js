@@ -279,7 +279,56 @@
       if (labels[i] === largest) keep[i] = 1;
     }
     keep = dilateMask(keep);
-    // Close tiny holes only — do NOT roof-trim (that chops glass roofs / chat)
+
+    // Strip thin roof antennas / whip masts (all cars & Jeeps)
+    function stripAntennaSpikes(mask) {
+      var topY = new Int32Array(w);
+      var x;
+      for (x = 0; x < w; x++) {
+        topY[x] = h;
+        for (var y = 0; y < h; y++) {
+          if (mask[y * w + x]) {
+            topY[x] = y;
+            break;
+          }
+        }
+      }
+      var tops = [];
+      for (x = 0; x < w; x++) {
+        if (topY[x] < h) tops.push(topY[x]);
+      }
+      if (tops.length < 12) return mask;
+      tops.sort(function (a, b) {
+        return a - b;
+      });
+      var roof = tops[(tops.length * 0.35) | 0];
+      var maxSpikeW = Math.max(4, (w * 0.028) | 0);
+      var minSpikeH = Math.max(12, (h * 0.04) | 0);
+      var out = new Uint8Array(mask);
+      x = 0;
+      while (x < w) {
+        if (topY[x] >= h || topY[x] >= roof - ((minSpikeH / 2) | 0)) {
+          x++;
+          continue;
+        }
+        var x0 = x;
+        var minTop = topY[x];
+        while (x < w && topY[x] < h && topY[x] < roof - ((minSpikeH / 2) | 0)) {
+          if (topY[x] < minTop) minTop = topY[x];
+          x++;
+        }
+        var runW = x - x0;
+        var spikeH = roof - minTop;
+        if (runW <= maxSpikeW && spikeH >= minSpikeH) {
+          for (var xx = x0; xx < x; xx++) {
+            for (var yy = 0; yy < roof; yy++) out[yy * w + xx] = 0;
+          }
+        }
+      }
+      return out;
+    }
+    keep = stripAntennaSpikes(keep);
+    keep = stripAntennaSpikes(keep);
 
     // Soft AA edge (box blur of mask) instead of hard binary matte
     var soft = new Float32Array(n);
