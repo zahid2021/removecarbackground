@@ -89,7 +89,7 @@ def cutout(img: Image.Image) -> Image.Image:
 def marketplace_defringe(rgba: np.ndarray) -> np.ndarray:
     """
     Kill white/light halo around dark cars on pure white marketplace backdrops.
-    Contracts the matte 1px and strips light fringe near the silhouette edge.
+    Contracts the matte and strips light fringe near the silhouette edge.
     """
     if rgba.ndim != 3 or rgba.shape[2] != 4:
         return rgba
@@ -98,58 +98,66 @@ def marketplace_defringe(rgba: np.ndarray) -> np.ndarray:
     g = rgba[:, :, 1].astype(np.float32)
     b = rgba[:, :, 2].astype(np.float32)
     luma = 0.299 * r + 0.587 * g + 0.114 * b
-    solid = (alpha >= 100).astype(np.uint8)
+    solid = (alpha >= 80).astype(np.uint8)
     if int(solid.sum()) < 200:
         return rgba
+
+    # Typical car body is dark — if most opaque pixels are dark, treat light edge as halo
+    body = solid > 0
+    body_luma = luma[body]
+    dark_ratio = float((body_luma < 90).sum()) / max(1, body_luma.size)
+    light_edge_thr = 95 if dark_ratio > 0.45 else 130
 
     out = rgba.copy()
     try:
         import cv2
 
         k = np.ones((3, 3), np.uint8)
-        core = cv2.erode(solid, k, iterations=1)
-        # Light pixels on the outer ring = classic rembg halo
+        k5 = np.ones((5, 5), np.uint8)
+        # 2px contract kills thick rembg halos on tires/roof
+        core = cv2.erode(solid, k, iterations=2)
         ring = (solid > 0) & (core == 0)
-        # Also kill light gray sitting next to background
-        near_bg = cv2.dilate((1 - solid).astype(np.uint8), k, iterations=2) > 0
-        light = (
-            (alpha > 0)
-            & near_bg
-            & (luma > 118)
-            & (np.abs(r - g) < 45)
-            & (np.abs(g - b) < 45)
-        )
-        kill = ring | light
+        near_bg = cv2.dilate((1 - solid).astype(np.uint8), k5, iterations=1) > 0
+        light = (alpha > 0) & near_bg & (luma > light_edge_thr)
+        # Neutral light fringe (not warm headlights)
+        neutral = (np.abs(r - g) < 55) & (np.abs(g - b) < 55)
+        kill = ring | (light & neutral)
+        # Keep bright warm lamps near bumper (yellow headlights)
+        warm = (r > 140) & (g > 90) & (b < 90) & (r > b + 40)
+        kill = kill & (~warm)
         out[kill] = 0
 
-        # Rebuild soft edge from contracted core (no white bleed)
-        keep = (out[:, :, 3] >= 100).astype(np.uint8)
+        keep = (out[:, :, 3] >= 80).astype(np.uint8)
         keep = cv2.morphologyEx(keep, cv2.MORPH_CLOSE, k, iterations=1)
-        soft = cv2.GaussianBlur(keep.astype(np.float32) * 255.0, (0, 0), 0.45)
-        soft = np.where(keep > 0, np.maximum(soft, 235), soft)
+        # One more erode for marketplace crispness
+        keep = cv2.erode(keep, k, iterations=1)
+        keep = cv2.dilate(keep, k, iterations=1)  # restore bulk, not the fringe
+        soft = cv2.GaussianBlur(keep.astype(np.float32) * 255.0, (0, 0), 0.4)
+        soft = np.where(keep > 0, np.maximum(soft, 240), soft)
         soft = np.clip(soft, 0, 255)
         out[keep == 0] = 0
         out[:, :, 3] = soft.astype(np.uint8)
-        out[out[:, :, 3] < 18] = 0
+        out[out[:, :, 3] < 20] = 0
         return out
     except ImportError:
-        # Numpy-only 1px erode
         h, w = solid.shape
         core = solid.copy()
-        for y in range(1, h - 1):
-            for x in range(1, w - 1):
-                if not solid[y, x]:
-                    continue
-                if not (
-                    solid[y, x - 1]
-                    and solid[y, x + 1]
-                    and solid[y - 1, x]
-                    and solid[y + 1, x]
-                ):
-                    core[y, x] = 0
+        for _ in range(2):
+            nxt = core.copy()
+            for y in range(1, h - 1):
+                for x in range(1, w - 1):
+                    if not core[y, x]:
+                        continue
+                    if not (
+                        core[y, x - 1]
+                        and core[y, x + 1]
+                        and core[y - 1, x]
+                        and core[y + 1, x]
+                    ):
+                        nxt[y, x] = 0
+            core = nxt
         ring = (solid > 0) & (core == 0)
-        light = (alpha > 0) & (luma > 118) & (np.abs(r - g) < 45) & (np.abs(g - b) < 45)
-        # light only if any transparent neighbor
+        light = (alpha > 0) & (luma > light_edge_thr) & (np.abs(r - g) < 55) & (np.abs(g - b) < 55)
         for y in range(1, h - 1):
             for x in range(1, w - 1):
                 if not light[y, x]:
@@ -161,7 +169,8 @@ def marketplace_defringe(rgba: np.ndarray) -> np.ndarray:
                     and solid[y + 1, x]
                 ):
                     light[y, x] = False
-        out[ring | light] = 0
+        warm = (r > 140) & (g > 90) & (b < 90) & (r > b + 40)
+        out[ring | (light & (~warm))] = 0
         out[core == 0] = 0
         return out
 

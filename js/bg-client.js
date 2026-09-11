@@ -486,10 +486,20 @@
       }
     }
 
-    // Marketplace defringe: strip white/light halo on silhouette edge
+    // Marketplace defringe: strip white/light halo on silhouette edge (dark cars)
     var solid2 = new Uint8Array(n);
-    for (i = 0; i < n; i++) solid2[i] = data[i * 4 + 3] >= 100 ? 1 : 0;
-    var core = erodeMask(solid2);
+    for (i = 0; i < n; i++) solid2[i] = data[i * 4 + 3] >= 80 ? 1 : 0;
+    var darkN = 0;
+    var bodyN = 0;
+    for (i = 0; i < n; i++) {
+      if (!solid2[i]) continue;
+      bodyN++;
+      var lu0 =
+        0.299 * data[i * 4] + 0.587 * data[i * 4 + 1] + 0.114 * data[i * 4 + 2];
+      if (lu0 < 90) darkN++;
+    }
+    var lightThr = bodyN && darkN / bodyN > 0.45 ? 95 : 130;
+    var core = erodeMask(erodeMask(solid2));
     for (i = 0; i < n; i++) {
       if (!solid2[i]) continue;
       var px = i % w;
@@ -504,31 +514,16 @@
       if (px < w - 1 && !solid2[i + 1]) nearBg = true;
       if (py > 0 && !solid2[i - w]) nearBg = true;
       if (py < h - 1 && !solid2[i + w]) nearBg = true;
+      var warm = rr > 140 && gg > 90 && bb < 90 && rr > bb + 40;
+      if (warm) continue;
       if (
         onRing ||
-        (nearBg &&
-          lu > 118 &&
-          Math.abs(rr - gg) < 45 &&
-          Math.abs(gg - bb) < 45)
+        (nearBg && lu > lightThr && Math.abs(rr - gg) < 55 && Math.abs(gg - bb) < 55)
       ) {
         data[i * 4] = 0;
         data[i * 4 + 1] = 0;
         data[i * 4 + 2] = 0;
         data[i * 4 + 3] = 0;
-      }
-    }
-    // Rebuild soft edge from contracted core
-    for (i = 0; i < n; i++) solid2[i] = data[i * 4 + 3] >= 100 ? 1 : 0;
-    core = erodeMask(dilateMask(solid2));
-    for (i = 0; i < n; i++) {
-      if (!core[i] && data[i * 4 + 3] > 0) {
-        // keep only if still solid after light ring kill; drop soft fringe
-        if (!solid2[i]) {
-          data[i * 4] = 0;
-          data[i * 4 + 1] = 0;
-          data[i * 4 + 2] = 0;
-          data[i * 4 + 3] = 0;
-        }
       }
     }
   }
