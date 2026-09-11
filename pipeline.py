@@ -159,8 +159,99 @@ def strip_thin_islands(solid: np.ndarray) -> np.ndarray:
     return out
 
 
+def strip_undercarriage_ground(keep: np.ndarray) -> np.ndarray:
+    """
+    Remove leftover asphalt / floor between tires (common rembg fail on cars & Jeeps).
+    Clears the under-chassis zone between left and right wheel clusters.
+    """
+    h, w = keep.shape
+    ys, xs = np.where(keep > 0)
+    if xs.size < 80:
+        return keep
+    y0, y1 = int(ys.min()), int(ys.max())
+    x0, x1 = int(xs.min()), int(xs.max())
+    bh = y1 - y0 + 1
+    bw = x1 - x0 + 1
+    if bh < 40 or bw < 40:
+        return keep
+
+    band0 = y0 + int(bh * 0.58)
+    bottom = np.full(w, -1, dtype=np.int32)
+    thick = np.zeros(w, dtype=np.int32)
+    for x in range(x0, x1 + 1):
+        col = keep[band0 : y1 + 1, x]
+        thick[x] = int(col.sum())
+        ys_c = np.flatnonzero(keep[y0 : y1 + 1, x])
+        if ys_c.size:
+            bottom[x] = y0 + int(ys_c[-1])
+
+    thr = max(4, int(bh * 0.07))
+    tire = (thick >= thr) & (bottom >= y0 + int(bh * 0.72))
+    tire_xs = np.flatnonzero(tire)
+    if tire_xs.size < 6:
+        return keep
+
+    mid = (x0 + x1) // 2
+    left = tire_xs[tire_xs < mid]
+    right = tire_xs[tire_xs >= mid]
+    if left.size == 0 or right.size == 0:
+        out = keep.copy()
+        chassis = y0 + int(bh * 0.78)
+        for x in range(x0, x1 + 1):
+            if thick[x] < thr and bottom[x] >= chassis:
+                out[chassis : y1 + 1, x] = 0
+        return out
+
+    L = int(left.max())
+    R = int(right.min())
+    if R - L < 8:
+        return keep
+
+    chassis_samples = []
+    for x in list(left[-8:]) + list(right[:8]):
+        col = keep[band0 : y1 + 1, x]
+        ys_c = np.flatnonzero(col)
+        if ys_c.size:
+            chassis_samples.append(band0 + int(ys_c[0]))
+    if not chassis_samples:
+        return keep
+    chassis = int(np.median(chassis_samples))
+    chassis = min(y1 - 2, chassis + max(2, bh // 80))
+
+    out = keep.copy()
+    for x in range(L + 1, R):
+        out[chassis : y1 + 1, x] = 0
+
+    crumb_y = y0 + int(bh * 0.88)
+    for x in range(x0, x1 + 1):
+        if tire[x]:
+            continue
+        if bottom[x] >= crumb_y and thick[x] < thr:
+            out[crumb_y : y1 + 1, x] = 0
+
+    try:
+        import cv2
+
+        zone = y0 + int(bh * 0.68)
+        bot = out[zone:, :].copy()
+        k = cv2.getStructuringElement(
+            cv2.MORPH_ELLIPSE, (max(3, bw // 30), max(3, bh // 28))
+        )
+        bot = cv2.morphologyEx(bot, cv2.MORPH_OPEN, k)
+        out[zone:, :] = bot
+        num, labels, stats, _ = cv2.connectedComponentsWithStats(out, connectivity=8)
+        if num > 1:
+            areas = stats[1:, cv2.CC_STAT_AREA]
+            largest = 1 + int(np.argmax(areas))
+            out = (labels == largest).astype(np.uint8)
+    except ImportError:
+        pass
+
+    return out
+
+
 def dealer_cleanup(cut: Image.Image) -> Image.Image:
-    """Keep largest car blob; strip antennas on every car/Jeep. Works with or without OpenCV."""
+    """Keep largest car blob; strip antennas + under-car floor; all cars/Jeeps."""
     rgba = np.array(cut)
     if rgba.ndim != 3 or rgba.shape[2] != 4:
         return cut
@@ -171,16 +262,27 @@ def dealer_cleanup(cut: Image.Image) -> Image.Image:
     b = rgba[:, :, 2].astype(np.float32)
 
     green_bias = g - np.maximum(r, b)
-    # Weak-alpha / green fringe only — never remove solid dark glass/tyres
-    kill = (
-        (alpha < 24)
-        | ((alpha < 170) & (green_bias > 16))
-        | ((alpha < 130) & (g > 90) & (b > 70) & (r < g - 14))
+    luma = 0.299 * r + 0.587 * g + 0.114 * b
+    yy = np.arange(h, dtype=np.float32)[:, None]
+    # Weak matte, foliage fringe, and gray floor/horizon haze in lower half
+    haze = (
+        (alpha < 28)
+        | ((alpha < 180) & (green_bias > 14))
+        | ((alpha < 140) & (g > 90) & (b > 70) & (r < g - 12))
+        | (
+            (yy > h * 0.42)
+            & (alpha < 210)
+            & (alpha > 0)
+            & (np.abs(r - g) < 22)
+            & (np.abs(g - b) < 22)
+            & (luma > 55)
+            & (luma < 210)
+        )
     )
-    alpha = np.where(kill, 0, alpha)
-    alpha = np.where(alpha < 50, 0, alpha)
-    soft = (alpha >= 50) & (alpha < 230)
-    alpha = np.where(soft, (alpha - 50) * (255.0 / 180.0), alpha)
+    alpha = np.where(haze, 0, alpha)
+    alpha = np.where(alpha < 55, 0, alpha)
+    soft = (alpha >= 55) & (alpha < 230)
+    alpha = np.where(soft, (alpha - 55) * (255.0 / 175.0), alpha)
     alpha = np.where(alpha >= 230, 255, alpha)
     g2 = np.where(green_bias > 8, np.maximum(0, g - np.minimum(green_bias, 22)), g)
     rgba[:, :, 1] = g2.astype(np.uint8)
@@ -207,27 +309,26 @@ def dealer_cleanup(cut: Image.Image) -> Image.Image:
     except ImportError:
         keep = solid
 
-    # Always — antennas on cars, Jeeps, SUVs (no OpenCV required)
     keep = strip_antenna_spikes(keep)
+    keep = strip_undercarriage_ground(keep)
     keep = strip_antenna_spikes(keep)
 
     try:
         import cv2
 
         edge = keep.astype(np.float32) * 255.0
-        edge = cv2.GaussianBlur(edge, (0, 0), sigmaX=0.55)
-        edge = np.where(keep > 0, np.maximum(edge, 220), edge)
+        edge = cv2.GaussianBlur(edge, (0, 0), sigmaX=0.45)
+        edge = np.where(keep > 0, np.maximum(edge, 230), edge)
         edge = np.clip(edge, 0, 255)
-        mask = edge > 10
+        mask = edge > 12
         out = rgba.copy()
         out[~mask] = 0
         out[mask, 3] = edge[mask].astype(np.uint8)
     except ImportError:
         out = rgba.copy()
-        dead = keep == 0
-        out[dead] = 0
+        out[keep == 0] = 0
 
-    faint = out[:, :, 3] < 16
+    faint = out[:, :, 3] < 18
     out[faint] = 0
     return Image.fromarray(out, "RGBA")
 
@@ -238,80 +339,37 @@ def add_contact_shadow(
     ox: int,
     oy: int,
 ) -> None:
-    """Jeep/marketplace-style soft ground shadow under tires + chassis."""
+    """Clean soft oval under the car (marketplace). Avoids gray smear bars."""
     cw, ch = subject.size
     if cw < 8 or ch < 8:
         return
 
     alpha = np.asarray(subject.split()[-1], dtype=np.uint8)
-    # Per-column contact line (lowest opaque pixel = tire/ground)
-    contact = np.full(cw, -1, dtype=np.int32)
-    for x in range(cw):
-        col = alpha[:, x]
-        ys = np.flatnonzero(col > 40)
-        if ys.size:
-            contact[x] = int(ys[-1])
-
-    if (contact < 0).all():
+    ys = np.flatnonzero(np.any(alpha > 40, axis=1))
+    xs = np.flatnonzero(np.any(alpha > 40, axis=0))
+    if ys.size == 0 or xs.size == 0:
         return
+    bottom = int(ys[-1])
+    left, right = int(xs[0]), int(xs[-1])
+    foot_w = max(16, right - left + 1)
 
-    # Thin soft ribbon along the contact line (not a full-car silhouette squash)
-    band_h = max(16, ch // 5)
-    ribbon = np.zeros((band_h, cw), dtype=np.uint8)
-    mid = band_h * 2 // 3
-    for x in range(cw):
-        by = contact[x]
-        if by < 0:
-            continue
-        # Stronger near true contact, fades up/down
-        for dy in range(band_h):
-            dist = abs(dy - mid)
-            fall = 1.0 - dist / max(1, mid)
-            if fall <= 0:
-                continue
-            # Slightly stronger under tires (lower opaque area ≈ thicker alpha near bottom)
-            strength = 200 if alpha[by, x] > 180 else 140
-            ribbon[dy, x] = max(ribbon[dy, x], int(strength * fall * fall))
-
-    sil = Image.fromarray(ribbon, mode="L")
-    soft_w = max(16, int(cw * 1.14))
-    soft_h = max(12, int(ch * 0.11))
-    soft = sil.resize((soft_w, soft_h), Image.Resampling.LANCZOS)
-    soft = soft.filter(ImageFilter.GaussianBlur(radius=max(10, cw // 20)))
-    soft_a = soft.point(lambda v: min(255, int(v * 0.5)))
-    soft_rgba = Image.merge(
-        "RGBA",
-        (
-            Image.new("L", soft.size, 0),
-            Image.new("L", soft.size, 0),
-            Image.new("L", soft.size, 0),
-            soft_a,
-        ),
+    sw = max(20, int(foot_w * 0.92))
+    sh = max(10, int(ch * 0.07))
+    layer = Image.new("RGBA", (sw * 2, sh * 2), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(layer)
+    draw.ellipse([0, 0, sw * 2 - 1, sh * 2 - 1], fill=(0, 0, 0, 70))
+    inset_x = int(sw * 0.35)
+    inset_y = int(sh * 0.45)
+    draw.ellipse(
+        [inset_x, inset_y, sw * 2 - 1 - inset_x, sh * 2 - 1 - inset_y],
+        fill=(0, 0, 0, 110),
     )
-    sx = ox + (cw - soft_w) // 2
-    # Sit just under the car bottom
-    mean_contact = int(contact[contact >= 0].mean())
-    sy = oy + mean_contact - soft_h // 2
-    canvas.alpha_composite(soft_rgba, (sx, max(0, sy)))
+    layer = layer.resize((sw, sh), Image.Resampling.LANCZOS)
+    layer = layer.filter(ImageFilter.GaussianBlur(radius=max(3, sw // 40)))
 
-    # Darker, tighter contact under the footprint
-    tight_w = max(12, int(cw * 0.82))
-    tight_h = max(6, int(ch * 0.045))
-    tight = sil.resize((tight_w, tight_h), Image.Resampling.LANCZOS)
-    tight = tight.filter(ImageFilter.GaussianBlur(radius=max(4, cw // 45)))
-    tight_a = tight.point(lambda v: min(255, int(v * 0.7)))
-    tight_rgba = Image.merge(
-        "RGBA",
-        (
-            Image.new("L", tight.size, 0),
-            Image.new("L", tight.size, 0),
-            Image.new("L", tight.size, 0),
-            tight_a,
-        ),
-    )
-    tx = ox + (cw - tight_w) // 2
-    ty = oy + mean_contact - tight_h // 3
-    canvas.alpha_composite(tight_rgba, (tx, max(0, ty)))
+    sx = ox + left + (foot_w - sw) // 2
+    sy = oy + bottom - sh // 3
+    canvas.alpha_composite(layer, (max(0, sx), max(0, sy)))
 
 
 def frame_cutout(subject: Image.Image, backdrop_key: str, custom_path: Optional[Path] = None) -> Image.Image:

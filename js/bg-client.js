@@ -149,7 +149,7 @@
     for (i = 0; i < n; i++) {
       o = i * 4;
       var a = data[o + 3];
-      if (a < 32) {
+      if (a < 28) {
         data[o + 3] = 0;
         continue;
       }
@@ -157,19 +157,36 @@
       var g = data[o + 1];
       var b = data[o + 2];
       var greenBias = g - Math.max(r, b);
-      if (a < 200 && greenBias > 14) {
+      var py = (i / w) | 0;
+      var luma = 0.299 * r + 0.587 * g + 0.114 * b;
+      // Gray floor / horizon haze in lower half
+      if (
+        py > h * 0.42 &&
+        a < 210 &&
+        Math.abs(r - g) < 22 &&
+        Math.abs(g - b) < 22 &&
+        luma > 55 &&
+        luma < 210
+      ) {
+        data[o] = 0;
+        data[o + 1] = 0;
+        data[o + 2] = 0;
         data[o + 3] = 0;
         continue;
       }
-      if (a < 150 && g > 85 && b > 65 && r < g - 12) {
+      if (a < 180 && greenBias > 14) {
+        data[o + 3] = 0;
+        continue;
+      }
+      if (a < 140 && g > 85 && b > 65 && r < g - 12) {
         data[o + 3] = 0;
         continue;
       }
       // Do not kill solid dark glass by luma — that chops Tesla/glass roofs
       if (greenBias > 5) data[o + 1] = Math.max(0, g - Math.min(greenBias, 28));
-      if (data[o + 3] < 50) data[o + 3] = 0;
+      if (data[o + 3] < 55) data[o + 3] = 0;
       else if (data[o + 3] < 220)
-        data[o + 3] = Math.round((data[o + 3] - 50) * (255 / 170));
+        data[o + 3] = Math.round((data[o + 3] - 55) * (255 / 165));
       else data[o + 3] = 255;
     }
 
@@ -328,6 +345,109 @@
       return out;
     }
     keep = stripAntennaSpikes(keep);
+
+    // Remove leftover floor between tires (cars & Jeeps)
+    function stripUndercarriageGround(mask) {
+      var ysMin = h,
+        ysMax = 0,
+        xsMin = w,
+        xsMax = 0,
+        found = false;
+      var p;
+      for (p = 0; p < n; p++) {
+        if (!mask[p]) continue;
+        found = true;
+        var px = p % w;
+        var py = (p / w) | 0;
+        if (px < xsMin) xsMin = px;
+        if (px > xsMax) xsMax = px;
+        if (py < ysMin) ysMin = py;
+        if (py > ysMax) ysMax = py;
+      }
+      if (!found) return mask;
+      var bh = ysMax - ysMin + 1;
+      var bw = xsMax - xsMin + 1;
+      if (bh < 40 || bw < 40) return mask;
+      var band0 = ysMin + ((bh * 0.58) | 0);
+      var bottom = new Int32Array(w);
+      var thick = new Int32Array(w);
+      var x;
+      for (x = 0; x < w; x++) bottom[x] = -1;
+      for (x = xsMin; x <= xsMax; x++) {
+        var t = 0;
+        var last = -1;
+        for (var y = ysMin; y <= ysMax; y++) {
+          if (mask[y * w + x]) {
+            last = y;
+            if (y >= band0) t++;
+          }
+        }
+        thick[x] = t;
+        bottom[x] = last;
+      }
+      var thr = Math.max(4, (bh * 0.07) | 0);
+      var tire = new Uint8Array(w);
+      var tireXs = [];
+      for (x = xsMin; x <= xsMax; x++) {
+        if (thick[x] >= thr && bottom[x] >= ysMin + ((bh * 0.72) | 0)) {
+          tire[x] = 1;
+          tireXs.push(x);
+        }
+      }
+      if (tireXs.length < 6) return mask;
+      var mid = ((xsMin + xsMax) / 2) | 0;
+      var left = tireXs.filter(function (v) {
+        return v < mid;
+      });
+      var right = tireXs.filter(function (v) {
+        return v >= mid;
+      });
+      var out = new Uint8Array(mask);
+      if (!left.length || !right.length) {
+        var chassis0 = ysMin + ((bh * 0.78) | 0);
+        for (x = xsMin; x <= xsMax; x++) {
+          if (thick[x] < thr && bottom[x] >= chassis0) {
+            for (y = chassis0; y <= ysMax; y++) out[y * w + x] = 0;
+          }
+        }
+        return out;
+      }
+      var L = left[left.length - 1];
+      var R = right[0];
+      if (R - L < 8) return mask;
+      var samples = [];
+      function sampleChassis(xs) {
+        for (var i = 0; i < xs.length; i++) {
+          var xx = xs[i];
+          for (var yy = band0; yy <= ysMax; yy++) {
+            if (mask[yy * w + xx]) {
+              samples.push(yy);
+              break;
+            }
+          }
+        }
+      }
+      sampleChassis(left.slice(-8));
+      sampleChassis(right.slice(0, 8));
+      if (!samples.length) return mask;
+      samples.sort(function (a, b) {
+        return a - b;
+      });
+      var chassis = samples[(samples.length / 2) | 0] + Math.max(2, (bh / 80) | 0);
+      chassis = Math.min(ysMax - 2, chassis);
+      for (x = L + 1; x < R; x++) {
+        for (y = chassis; y <= ysMax; y++) out[y * w + x] = 0;
+      }
+      var crumbY = ysMin + ((bh * 0.88) | 0);
+      for (x = xsMin; x <= xsMax; x++) {
+        if (tire[x]) continue;
+        if (bottom[x] >= crumbY && thick[x] < thr) {
+          for (y = crumbY; y <= ysMax; y++) out[y * w + x] = 0;
+        }
+      }
+      return out;
+    }
+    keep = stripUndercarriageGround(keep);
     keep = stripAntennaSpikes(keep);
 
     // Soft AA edge (box blur of mask) instead of hard binary matte
@@ -363,102 +483,49 @@
     }
   }
 
-  /** Jeep/marketplace soft ground shadow along tire contact line. */
+  /** Clean marketplace oval shadow under tires (no gray smear bar). */
   function drawContactShadow(ctx, srcCanvas, minX, minY, cw, ch, ox, oy) {
     try {
       var sctx = srcCanvas.getContext("2d", { willReadFrequently: true });
       var data = sctx.getImageData(minX, minY, cw, ch).data;
-      var contact = new Int32Array(cw);
-      var i;
-      for (i = 0; i < cw; i++) contact[i] = -1;
-      for (var x = 0; x < cw; x++) {
-        for (var y = ch - 1; y >= 0; y--) {
-          if (data[(y * cw + x) * 4 + 3] > 40) {
-            contact[x] = y;
-            break;
-          }
+      var bottom = -1;
+      var left = cw;
+      var right = 0;
+      for (var y = 0; y < ch; y++) {
+        for (var x = 0; x < cw; x++) {
+          if (data[(y * cw + x) * 4 + 3] <= 40) continue;
+          if (y > bottom) bottom = y;
+          if (x < left) left = x;
+          if (x > right) right = x;
         }
       }
-      var sum = 0;
-      var n = 0;
-      for (i = 0; i < cw; i++) {
-        if (contact[i] >= 0) {
-          sum += contact[i];
-          n++;
-        }
-      }
-      if (!n) return;
-      var meanContact = (sum / n) | 0;
-
-      var bandH = Math.max(16, (ch / 5) | 0);
-      var mid = ((bandH * 2) / 3) | 0;
-      var ribbon = document.createElement("canvas");
-      ribbon.width = cw;
-      ribbon.height = bandH;
-      var rctx = ribbon.getContext("2d");
-      var rid = rctx.createImageData(cw, bandH);
-      for (x = 0; x < cw; x++) {
-        if (contact[x] < 0) continue;
-        var strength = data[(contact[x] * cw + x) * 4 + 3] > 180 ? 200 : 140;
-        for (var dy = 0; dy < bandH; dy++) {
-          var fall = 1 - Math.abs(dy - mid) / Math.max(1, mid);
-          if (fall <= 0) continue;
-          var o = (dy * cw + x) * 4;
-          rid.data[o + 3] = Math.max(
-            rid.data[o + 3],
-            (strength * fall * fall) | 0
-          );
-        }
-      }
-      rctx.putImageData(rid, 0, 0);
-
-      var softW = Math.max(16, Math.round(cw * 1.14));
-      var softH = Math.max(12, Math.round(ch * 0.11));
-      var soft = document.createElement("canvas");
-      soft.width = softW;
-      soft.height = softH;
-      var softCtx = soft.getContext("2d");
-      softCtx.filter = "blur(" + Math.max(10, Math.round(cw * 0.05)) + "px)";
-      softCtx.globalAlpha = 0.5;
-      softCtx.drawImage(ribbon, 0, 0, softW, softH);
-      ctx.drawImage(
-        soft,
-        ox + ((cw - softW) / 2) | 0,
-        oy + meanContact - ((softH / 2) | 0)
-      );
-
-      var tightW = Math.max(12, Math.round(cw * 0.82));
-      var tightH = Math.max(6, Math.round(ch * 0.045));
-      var tight = document.createElement("canvas");
-      tight.width = tightW;
-      tight.height = tightH;
-      var tctx = tight.getContext("2d");
-      tctx.filter = "blur(" + Math.max(4, Math.round(cw * 0.022)) + "px)";
-      tctx.globalAlpha = 0.7;
-      tctx.drawImage(ribbon, 0, 0, tightW, tightH);
-      ctx.drawImage(
-        tight,
-        ox + ((cw - tightW) / 2) | 0,
-        oy + meanContact - ((tightH / 3) | 0)
-      );
-    } catch (e) {
-      var cx = ox + cw / 2;
-      var cy = oy + ch * 0.94;
-      var rx = cw * 0.45;
-      var ry = Math.max(8, ch * 0.05);
+      if (bottom < 0) return;
+      var footW = Math.max(16, right - left + 1);
+      var sw = Math.max(20, Math.round(footW * 0.92));
+      var sh = Math.max(10, Math.round(ch * 0.07));
+      var cx = ox + left + footW / 2;
+      var cy = oy + bottom - sh / 6;
       ctx.save();
       if (typeof ctx.filter === "string") {
-        ctx.filter = "blur(" + Math.max(8, Math.round(cw * 0.025)) + "px)";
+        ctx.filter = "blur(" + Math.max(4, Math.round(sw * 0.04)) + "px)";
       }
       ctx.fillStyle = "rgba(0,0,0,0.22)";
       ctx.beginPath();
       if (typeof ctx.ellipse === "function") {
-        ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+        ctx.ellipse(cx, cy, sw / 2, sh / 2, 0, 0, Math.PI * 2);
       } else {
-        ctx.arc(cx, cy, rx, 0, Math.PI * 2);
+        ctx.arc(cx, cy, sw / 2, 0, Math.PI * 2);
+      }
+      ctx.fill();
+      ctx.fillStyle = "rgba(0,0,0,0.28)";
+      ctx.beginPath();
+      if (typeof ctx.ellipse === "function") {
+        ctx.ellipse(cx, cy + sh * 0.1, sw * 0.32, sh * 0.28, 0, 0, Math.PI * 2);
       }
       ctx.fill();
       ctx.restore();
+    } catch (e) {
+      /* ignore */
     }
   }
 
