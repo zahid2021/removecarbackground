@@ -6,6 +6,7 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="format-detection" content="telephone=no" />
   <title>RemoveCarBackground — Car Photo Editing for Dealerships</title>
+  <link rel="canonical" href="https://removecarbackground.com/" />
   <meta name="description" content="Remove car backgrounds in seconds. Half-cut, full-cut, showroom scenes, plate covers, and upscaling for vehicle adverts." />
   <meta name="theme-color" content="#0a0e12" />
   <link rel="icon" href="/icons/favicon.ico" sizes="any" />
@@ -31,7 +32,7 @@
             <li><a href="editor.html">Web App</a></li>
             <li><a href="#apps">Mobile App</a></li>
             <li><a href="account.html">API Integration</a></li>
-            <li><a href="transformer.html">Web Transformer</a></li>
+            <li><a href="/#batch">Multiple images</a></li>
             <li><a href="editor.html?mode=upscale">Image Upscaling</a></li>
             <li><a href="editor.html?mode=plate">Number Plate Covers</a></li>
           </ul>
@@ -240,7 +241,7 @@
             <span class="product-link">Learn more →</span>
           </div>
         </a>
-        <a class="product product-card reveal" href="transformer.html">
+        <a class="product product-card reveal" href="/#batch">
           <div class="product-media"><img src="/images/demo/prod-transform.jpg" alt="Website transformer" width="720" height="480" /></div>
           <div class="product-body">
             <h3>Website Transformer</h3>
@@ -274,7 +275,7 @@
             <li>Consistent crop &amp; output size</li>
             <li>Ready for site / feed export</li>
           </ul>
-          <a class="btn btn-dark" href="transformer.html">Open batch transformer</a>
+          <a class="btn btn-dark" href="/#batch">Open batch tool</a>
         </article>
         <article class="mode-panel featured reveal">
           <div class="mode-media">
@@ -289,6 +290,64 @@
           </div>
           <a class="btn btn-primary" href="signup.html">Start free trial</a>
         </article>
+      </div>
+
+      <!-- Batch tool lives on homepage so public URL stays https://removecarbackground.com/ -->
+      <div id="batch" class="auth-card reveal" style="max-width:820px;margin:48px auto 0">
+        <div class="section-tag">Multiple images</div>
+        <h3 class="section-title" style="max-width:none;font-size:1.5rem">Remove multiple images background</h3>
+        <p class="section-copy" style="margin-bottom:16px">
+          Select many car photos (up to 20). Each car shows <strong>Original</strong> and <strong>Result</strong> side by side — then download one ZIP.
+        </p>
+        <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <label>Cut mode</label>
+            <select class="field" id="batchMode">
+              <option value="full">Full-Cut</option>
+              <option value="half">Half-Cut</option>
+            </select>
+          </div>
+          <div>
+            <label>Backdrop</label>
+            <select class="field" id="batchBackdrop">
+              <option value="studio-white">Studio White</option>
+              <option value="graphite">Graphite</option>
+              <option value="brand-red">Brand Red</option>
+              <option value="outdoor-soft">Outdoor Soft</option>
+              <option value="checker">Transparent</option>
+            </select>
+          </div>
+          <div>
+            <label>Plate</label>
+            <select class="field" id="batchPlate">
+              <option value="none">Keep</option>
+              <option value="cover">Cover</option>
+            </select>
+          </div>
+          <div>
+            <label>Upscale</label>
+            <select class="field" id="batchUpscale">
+              <option value="1">1×</option>
+              <option value="2">2×</option>
+              <option value="3">3×</option>
+              <option value="4">4×</option>
+            </select>
+          </div>
+        </div>
+        <div class="dropzone" id="batchDrop" style="min-height:160px;margin:20px 0">
+          <div class="dropzone-copy">
+            <h3>Drop multiple car photos</h3>
+            <p>Remove many backgrounds at once · Max 20 · ZIP download</p>
+            <button class="btn btn-primary" type="button" id="batchBrowse">Choose multiple images</button>
+            <input type="file" id="batchFiles" accept="image/*" multiple hidden />
+          </div>
+        </div>
+        <div class="batch-grid" id="batchList" hidden></div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:8px">
+          <button class="btn btn-primary" type="button" id="batchRun" disabled>Remove backgrounds → ZIP</button>
+          <button class="btn btn-ghost" type="button" id="batchClear">Clear all</button>
+        </div>
+        <p class="mute" id="batchStatus" style="margin-top:12px">No files selected — AI prepares in the background</p>
       </div>
     </div>
   </section>
@@ -720,7 +779,7 @@
           <li><a href="editor.html?mode=upscale">Image Upscaling</a></li>
           <li><a href="#pricing">Pricing</a></li>
           <li><a href="blog.html">Blog</a></li>
-          <li><a href="transformer.html">Background Replacement Tool</a></li>
+          <li><a href="/#batch">Background Replacement Tool</a></li>
         </ul>
       </div>
       <div>
@@ -746,5 +805,20 @@
   <script src="js/config.js"></script>
   <script src="js/main.js?v=51"></script>
   <script src="js/meet.js?v=51"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/api-client.js?v=54"></script>
+  <script src="js/bg-client.js?v=52"></script>
+  <script src="js/transformer.js?v=54"></script>
+  <script>
+    if (window.RCB_BG && window.RCB_BG.warmup) {
+      var st = document.getElementById("batchStatus");
+      window.RCB_BG.warmup()
+        .then(function () {
+          if (st && !st.textContent.match(/\d+ images/))
+            st.textContent = "AI ready — choose multiple images";
+        })
+        .catch(function () {});
+    }
+  </script>
 </body>
 </html>

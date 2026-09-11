@@ -61,3 +61,11 @@ services:
     domains:
       - removecarbackground.com
       - www.removecarbackground.com
+    routes:
+      # Old batch URL → homepage only (public URL stays https://removecarbackground.com/)
+      - type: redirect
+        source: /transformer.html
+        destination: /
+      - type: redirect
+        source: /transformer
+        destination: /
