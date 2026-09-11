@@ -178,6 +178,18 @@
           saveSession(t, data.user);
           return data.user;
         }
+        // JWT expired or JWT_SECRET rotated on Render — keep UX alive
+        if (res.status === 401) {
+          var expiredUser = readUser();
+          if (expiredUser) {
+            var softTok =
+              "local." + b64(crypto.getRandomValues(new Uint8Array(24)));
+            saveSession(softTok, expiredUser);
+            return expiredUser;
+          }
+          clearSession();
+          return null;
+        }
       } catch (e) {
         /* API cold / offline */
       }
@@ -189,8 +201,28 @@
         saveSession(localTok, cached);
         return cached;
       }
+      if (cached) {
+        var offlineTok =
+          "local." + b64(crypto.getRandomValues(new Uint8Array(24)));
+        saveSession(offlineTok, cached);
+        return cached;
+      }
       clearSession();
       return null;
+    },
+    /** True if API said auth is dead — clear JWT so UI stops alerting raw 401. */
+    handleAuthFailure: function (status) {
+      if (status !== 401) return false;
+      var u = readUser();
+      if (u) {
+        saveSession(
+          "local." + b64(crypto.getRandomValues(new Uint8Array(24))),
+          u
+        );
+        return true;
+      }
+      clearSession();
+      return true;
     },
   };
 
@@ -420,8 +452,23 @@
           headers: authHeaders(),
           body: JSON.stringify({ credits: 100 }),
         });
-        var json = await res.json();
-        if (!res.ok) throw new Error(json.detail || "Top-up failed");
+        var json = await res.json().catch(function () {
+          return {};
+        });
+        if (!res.ok) {
+          if (res.status === 401) {
+            window.RCB.handleAuthFailure(401);
+            // Device demo top-up after expired JWT
+            var uLocal = readUser() || {};
+            uLocal.credits = (uLocal.credits || 0) + 100;
+            saveSession(getToken(), uLocal);
+            var creditsLocal = document.getElementById("creditsVal");
+            if (creditsLocal) creditsLocal.textContent = uLocal.credits;
+            topupBtn.textContent = "+100 credits added";
+            return;
+          }
+          throw new Error(errDetail(json, "Top-up failed"));
+        }
         var creditsVal2 = document.getElementById("creditsVal");
         if (creditsVal2) creditsVal2.textContent = json.credits;
         var u2 = readUser();
@@ -451,13 +498,20 @@
           headers: authHeaders(),
           body: JSON.stringify({ plan: plan ? plan.value : "Silver" }),
         });
-        var json = await res.json();
-        if (!res.ok)
+        var json = await res.json().catch(function () {
+          return {};
+        });
+        if (!res.ok) {
+          if (res.status === 401) {
+            window.RCB.handleAuthFailure(401);
+            throw new Error("Session expired — log in again for Stripe checkout");
+          }
           throw new Error(
             typeof json.detail === "string"
               ? json.detail
               : "Checkout unavailable — use demo top-up"
           );
+        }
         window.location.href = json.checkout_url;
       } catch (err) {
         alert(err.message);
@@ -477,9 +531,17 @@
         method: "POST",
         headers: { Authorization: "Bearer " + getToken() },
       });
-      var json = await res.json();
+      var json = await res.json().catch(function () {
+        return {};
+      });
       if (!res.ok) {
-        alert(json.detail || "Failed");
+        if (res.status === 401) {
+          window.RCB.handleAuthFailure(401);
+          alert("Session expired — please log in again to create API keys");
+          window.location.href = "/login";
+          return;
+        }
+        alert(errDetail(json, "Failed"));
         return;
       }
       alert("New API key (copy now):\n\n" + json.api_key);

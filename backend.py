@@ -37,7 +37,7 @@ load_dotenv()
 ROOT = Path(__file__).resolve().parent
 JWT_SECRET = os.getenv("JWT_SECRET", "rcb-dev-secret-change-me-32chars!!")
 JWT_ALG = "HS256"
-JWT_HOURS = 72
+JWT_HOURS = int(os.getenv("JWT_HOURS", "720"))  # 30 days default
 STRIPE_SECRET = os.getenv("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 PUBLIC_BASE = os.getenv("PUBLIC_BASE_URL", "http://127.0.0.1:5173")

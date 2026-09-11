@@ -20,6 +20,7 @@
   var libPromise = null;
   var warmPromise = null;
   var ready = false;
+  var preferredDevice = "gpu";
 
   function loadLib() {
     if (!libPromise) {
@@ -34,14 +35,19 @@
     return libPromise;
   }
 
-  function configBase() {
+  function configBase(device) {
     return {
       publicPath: PUBLIC_PATH,
       model: MODEL,
-      device: "gpu",
+      device: device || "gpu",
       proxyToWorker: false,
       output: { format: "image/png", quality: 0.95 },
     };
+  }
+
+  function isGpuBackendError(err) {
+    var msg = String((err && err.message) || err || "");
+    return /webgpu|requestAdapterInfo|no available backend|gpu/i.test(msg);
   }
 
   function withTimeout(promise, ms, label) {
@@ -400,23 +406,41 @@
   async function warmup(onProgress) {
     if (warmPromise) return warmPromise;
     warmPromise = (async function () {
-      var mod = await loadLib();
-      var cfg = configBase();
-      if (typeof onProgress === "function") onProgress("download", 0, 1);
-      if (typeof mod.preload === "function") {
-        await withTimeout(mod.preload(cfg), 120000, "AI model download");
-      } else {
-        var c = document.createElement("canvas");
-        c.width = 64;
-        c.height = 64;
-        var tiny = await new Promise(function (resolve) {
-          c.toBlob(resolve, "image/png");
-        });
-        await withTimeout(mod.removeBackground(tiny, cfg), 120000, "AI warmup");
+      try {
+        var mod = await loadLib();
+        var devices = ["gpu", "cpu"];
+        var lastErr = null;
+        for (var i = 0; i < devices.length; i++) {
+          var cfg = configBase(devices[i]);
+          try {
+            if (typeof onProgress === "function") onProgress("download", 0, 1);
+            if (typeof mod.preload === "function") {
+              await withTimeout(mod.preload(cfg), 120000, "AI model download");
+            } else {
+              var c = document.createElement("canvas");
+              c.width = 64;
+              c.height = 64;
+              var tiny = await new Promise(function (resolve) {
+                c.toBlob(resolve, "image/png");
+              });
+              await withTimeout(mod.removeBackground(tiny, cfg), 120000, "AI warmup");
+            }
+            ready = true;
+            preferredDevice = devices[i];
+            if (typeof onProgress === "function") onProgress("download", 1, 1);
+            return true;
+          } catch (e) {
+            lastErr = e;
+            if (!isGpuBackendError(e) || devices[i] === "cpu") throw e;
+            // WebGPU broken in this browser — try WASM/CPU
+          }
+        }
+        throw lastErr || new Error("AI warmup failed");
+      } catch (e) {
+        warmPromise = null;
+        ready = false;
+        throw e;
       }
-      ready = true;
-      if (typeof onProgress === "function") onProgress("download", 1, 1);
-      return true;
     })();
     return warmPromise;
   }
@@ -426,27 +450,46 @@
     if (!mod.removeBackground)
       throw new Error("AI failed to load — use Chrome or Edge");
 
-    var cfg = configBase();
-    cfg.progress = function (key, current, total) {
-      if (typeof onProgress === "function" && total) onProgress(key, current, total);
-    };
+    var devices = preferredDevice === "cpu" ? ["cpu"] : ["gpu", "cpu"];
+    var lastErr = null;
 
-    if (typeof onProgress === "function") onProgress("compute", 0, 1);
-    var input = await resizeBlob(fileOrBlob, PROCESS_MAX_SIDE);
-    var rawCut = await withTimeout(
-      mod.removeBackground(input, cfg),
-      PROCESS_TIMEOUT_MS,
-      "Background remove"
-    );
-    var refined = await refineCutoutBlob(rawCut);
-    try {
-      refined = await upscaleToOriginal(fileOrBlob, refined);
-    } catch (e) {
-      /* keep refined */
+    for (var i = 0; i < devices.length; i++) {
+      var cfg = configBase(devices[i]);
+      cfg.progress = function (key, current, total) {
+        if (typeof onProgress === "function" && total) onProgress(key, current, total);
+      };
+      try {
+        if (typeof onProgress === "function") onProgress("compute", 0, 1);
+        var input = await resizeBlob(fileOrBlob, PROCESS_MAX_SIDE);
+        var rawCut = await withTimeout(
+          mod.removeBackground(input, cfg),
+          PROCESS_TIMEOUT_MS,
+          "Background remove"
+        );
+        preferredDevice = devices[i];
+        var refined = await refineCutoutBlob(rawCut);
+        try {
+          refined = await upscaleToOriginal(fileOrBlob, refined);
+        } catch (e) {
+          /* keep refined */
+        }
+        ready = true;
+        if (typeof onProgress === "function") onProgress("compute", 1, 1);
+        return refined;
+      } catch (e) {
+        lastErr = e;
+        if (!isGpuBackendError(e) || devices[i] === "cpu") break;
+      }
     }
-    ready = true;
-    if (typeof onProgress === "function") onProgress("compute", 1, 1);
-    return refined;
+
+    var msg = String((lastErr && lastErr.message) || lastErr || "AI failed");
+    if (isGpuBackendError(lastErr)) {
+      throw new Error(
+        "Browser AI failed (WebGPU/CPU). Use Chrome/Edge latest, or hard refresh. " +
+          msg.replace(/Please check if the publicPath[^.]+\.?/i, "").trim()
+      );
+    }
+    throw lastErr || new Error("Background remove failed");
   }
 
   function coverPlate(ctx, w, h, text) {

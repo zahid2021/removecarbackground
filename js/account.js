@@ -183,9 +183,19 @@
         headers: { Authorization: "Bearer " + token() },
         body: fd,
       });
-      var json = await res.json();
+      var json = await res.json().catch(function () {
+        return {};
+      });
       if (!res.ok) {
-        alert(json.detail || "Upload failed");
+        if (res.status === 401) {
+          if (window.RCB && window.RCB.handleAuthFailure) window.RCB.handleAuthFailure(401);
+          alert("Session expired — please log in again to upload backdrops");
+          window.location.href = "/login";
+          return;
+        }
+        alert(
+          (typeof json.detail === "string" ? json.detail : null) || "Upload failed"
+        );
         return;
       }
       document.getElementById("backdropFile").value = "";
@@ -203,9 +213,19 @@
         headers: authHeaders(true),
         body: JSON.stringify({ email: email, role: role }),
       });
-      var json = await res.json();
+      var json = await res.json().catch(function () {
+        return {};
+      });
       if (!res.ok) {
-        alert(json.detail || "Invite failed");
+        if (res.status === 401) {
+          if (window.RCB && window.RCB.handleAuthFailure) window.RCB.handleAuthFailure(401);
+          alert("Session expired — please log in again");
+          window.location.href = "/login";
+          return;
+        }
+        alert(
+          (typeof json.detail === "string" ? json.detail : null) || "Invite failed"
+        );
         return;
       }
       prompt("Invite link (share with teammate):", json.invite_url);
