@@ -18,7 +18,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
 BACKDROPS = {
-    "studio-white": (245, 245, 247),
+    "studio-white": (255, 255, 255),  # marketplace pure white
     "graphite": (42, 48, 58),
     "brand-red": (120, 18, 28),
     "outdoor-soft": (210, 216, 222),
@@ -155,36 +155,80 @@ def add_contact_shadow(
     ox: int,
     oy: int,
 ) -> None:
-    """Soft ground / contact shadow so the car sits on the floor (marketplace look)."""
+    """Jeep/marketplace-style soft ground shadow under tires + chassis."""
     cw, ch = subject.size
     if cw < 8 or ch < 8:
         return
-    alpha = subject.split()[-1]
-    # Black silhouette from car alpha
-    sil = Image.new("RGBA", (cw, ch), (0, 0, 0, 0))
-    sil.paste(Image.new("RGBA", (cw, ch), (0, 0, 0, 150)), (0, 0), alpha)
 
-    # Wide soft oval under the chassis
-    soft_w = max(16, int(cw * 1.08))
-    soft_h = max(10, int(ch * 0.14))
+    alpha = np.asarray(subject.split()[-1], dtype=np.uint8)
+    # Per-column contact line (lowest opaque pixel = tire/ground)
+    contact = np.full(cw, -1, dtype=np.int32)
+    for x in range(cw):
+        col = alpha[:, x]
+        ys = np.flatnonzero(col > 40)
+        if ys.size:
+            contact[x] = int(ys[-1])
+
+    if (contact < 0).all():
+        return
+
+    # Thin soft ribbon along the contact line (not a full-car silhouette squash)
+    band_h = max(16, ch // 5)
+    ribbon = np.zeros((band_h, cw), dtype=np.uint8)
+    mid = band_h * 2 // 3
+    for x in range(cw):
+        by = contact[x]
+        if by < 0:
+            continue
+        # Stronger near true contact, fades up/down
+        for dy in range(band_h):
+            dist = abs(dy - mid)
+            fall = 1.0 - dist / max(1, mid)
+            if fall <= 0:
+                continue
+            # Slightly stronger under tires (lower opaque area ≈ thicker alpha near bottom)
+            strength = 200 if alpha[by, x] > 180 else 140
+            ribbon[dy, x] = max(ribbon[dy, x], int(strength * fall * fall))
+
+    sil = Image.fromarray(ribbon, mode="L")
+    soft_w = max(16, int(cw * 1.14))
+    soft_h = max(12, int(ch * 0.11))
     soft = sil.resize((soft_w, soft_h), Image.Resampling.LANCZOS)
-    soft = soft.filter(ImageFilter.GaussianBlur(radius=max(6, cw // 28)))
+    soft = soft.filter(ImageFilter.GaussianBlur(radius=max(10, cw // 20)))
+    soft_a = soft.point(lambda v: min(255, int(v * 0.5)))
+    soft_rgba = Image.merge(
+        "RGBA",
+        (
+            Image.new("L", soft.size, 0),
+            Image.new("L", soft.size, 0),
+            Image.new("L", soft.size, 0),
+            soft_a,
+        ),
+    )
     sx = ox + (cw - soft_w) // 2
-    sy = oy + int(ch * 0.86)
-    canvas.alpha_composite(soft, (sx, sy))
+    # Sit just under the car bottom
+    mean_contact = int(contact[contact >= 0].mean())
+    sy = oy + mean_contact - soft_h // 2
+    canvas.alpha_composite(soft_rgba, (sx, max(0, sy)))
 
-    # Tighter darker contact under tires
-    tight_w = max(12, int(cw * 0.78))
-    tight_h = max(6, int(ch * 0.05))
+    # Darker, tighter contact under the footprint
+    tight_w = max(12, int(cw * 0.82))
+    tight_h = max(6, int(ch * 0.045))
     tight = sil.resize((tight_w, tight_h), Image.Resampling.LANCZOS)
-    # Slightly stronger
-    r, g, b, a = tight.split()
-    a = a.point(lambda v: min(255, int(v * 1.25)))
-    tight = Image.merge("RGBA", (r, g, b, a))
-    tight = tight.filter(ImageFilter.GaussianBlur(radius=max(3, cw // 55)))
+    tight = tight.filter(ImageFilter.GaussianBlur(radius=max(4, cw // 45)))
+    tight_a = tight.point(lambda v: min(255, int(v * 0.7)))
+    tight_rgba = Image.merge(
+        "RGBA",
+        (
+            Image.new("L", tight.size, 0),
+            Image.new("L", tight.size, 0),
+            Image.new("L", tight.size, 0),
+            tight_a,
+        ),
+    )
     tx = ox + (cw - tight_w) // 2
-    ty = oy + int(ch * 0.93)
-    canvas.alpha_composite(tight, (tx, ty))
+    ty = oy + mean_contact - tight_h // 3
+    canvas.alpha_composite(tight_rgba, (tx, max(0, ty)))
 
 
 def frame_cutout(subject: Image.Image, backdrop_key: str, custom_path: Optional[Path] = None) -> Image.Image:

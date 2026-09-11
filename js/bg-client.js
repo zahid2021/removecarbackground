@@ -4,7 +4,7 @@
  */
 (function (global) {
   var COLORS = {
-    "studio-white": [245, 245, 247],
+    "studio-white": [255, 255, 255],
     graphite: [42, 48, 58],
     "brand-red": [120, 18, 28],
     "outdoor-soft": [210, 216, 222],
@@ -314,64 +314,94 @@
     }
   }
 
-  /** Soft marketplace contact shadow under the car (white-studio listing look). */
+  /** Jeep/marketplace soft ground shadow along tire contact line. */
   function drawContactShadow(ctx, srcCanvas, minX, minY, cw, ch, ox, oy) {
     try {
       var sctx = srcCanvas.getContext("2d", { willReadFrequently: true });
-      var id = sctx.getImageData(minX, minY, cw, ch);
-      var data = id.data;
-      var sil = document.createElement("canvas");
-      sil.width = cw;
-      sil.height = ch;
-      var silCtx = sil.getContext("2d");
-      var silData = silCtx.createImageData(cw, ch);
-      for (var i = 0; i < cw * ch; i++) {
-        var a = data[i * 4 + 3];
-        if (a < 20) continue;
-        silData.data[i * 4] = 0;
-        silData.data[i * 4 + 1] = 0;
-        silData.data[i * 4 + 2] = 0;
-        silData.data[i * 4 + 3] = Math.min(160, Math.round(a * 0.65));
+      var data = sctx.getImageData(minX, minY, cw, ch).data;
+      var contact = new Int32Array(cw);
+      var i;
+      for (i = 0; i < cw; i++) contact[i] = -1;
+      for (var x = 0; x < cw; x++) {
+        for (var y = ch - 1; y >= 0; y--) {
+          if (data[(y * cw + x) * 4 + 3] > 40) {
+            contact[x] = y;
+            break;
+          }
+        }
       }
-      silCtx.putImageData(silData, 0, 0);
+      var sum = 0;
+      var n = 0;
+      for (i = 0; i < cw; i++) {
+        if (contact[i] >= 0) {
+          sum += contact[i];
+          n++;
+        }
+      }
+      if (!n) return;
+      var meanContact = (sum / n) | 0;
 
-      var softW = Math.max(16, Math.round(cw * 1.08));
-      var softH = Math.max(10, Math.round(ch * 0.14));
+      var bandH = Math.max(16, (ch / 5) | 0);
+      var mid = ((bandH * 2) / 3) | 0;
+      var ribbon = document.createElement("canvas");
+      ribbon.width = cw;
+      ribbon.height = bandH;
+      var rctx = ribbon.getContext("2d");
+      var rid = rctx.createImageData(cw, bandH);
+      for (x = 0; x < cw; x++) {
+        if (contact[x] < 0) continue;
+        var strength = data[(contact[x] * cw + x) * 4 + 3] > 180 ? 200 : 140;
+        for (var dy = 0; dy < bandH; dy++) {
+          var fall = 1 - Math.abs(dy - mid) / Math.max(1, mid);
+          if (fall <= 0) continue;
+          var o = (dy * cw + x) * 4;
+          rid.data[o + 3] = Math.max(
+            rid.data[o + 3],
+            (strength * fall * fall) | 0
+          );
+        }
+      }
+      rctx.putImageData(rid, 0, 0);
+
+      var softW = Math.max(16, Math.round(cw * 1.14));
+      var softH = Math.max(12, Math.round(ch * 0.11));
       var soft = document.createElement("canvas");
       soft.width = softW;
       soft.height = softH;
       var softCtx = soft.getContext("2d");
-      softCtx.filter = "blur(" + Math.max(6, Math.round(cw * 0.035)) + "px)";
-      softCtx.drawImage(sil, 0, 0, softW, softH);
+      softCtx.filter = "blur(" + Math.max(10, Math.round(cw * 0.05)) + "px)";
+      softCtx.globalAlpha = 0.5;
+      softCtx.drawImage(ribbon, 0, 0, softW, softH);
       ctx.drawImage(
         soft,
         ox + ((cw - softW) / 2) | 0,
-        oy + ((ch * 0.86) | 0)
+        oy + meanContact - ((softH / 2) | 0)
       );
 
-      var tightW = Math.max(12, Math.round(cw * 0.78));
-      var tightH = Math.max(6, Math.round(ch * 0.05));
+      var tightW = Math.max(12, Math.round(cw * 0.82));
+      var tightH = Math.max(6, Math.round(ch * 0.045));
       var tight = document.createElement("canvas");
       tight.width = tightW;
       tight.height = tightH;
       var tctx = tight.getContext("2d");
-      tctx.filter = "blur(" + Math.max(3, Math.round(cw * 0.018)) + "px)";
-      tctx.drawImage(sil, 0, 0, tightW, tightH);
+      tctx.filter = "blur(" + Math.max(4, Math.round(cw * 0.022)) + "px)";
+      tctx.globalAlpha = 0.7;
+      tctx.drawImage(ribbon, 0, 0, tightW, tightH);
       ctx.drawImage(
         tight,
         ox + ((cw - tightW) / 2) | 0,
-        oy + ((ch * 0.93) | 0)
+        oy + meanContact - ((tightH / 3) | 0)
       );
     } catch (e) {
       var cx = ox + cw / 2;
-      var cy = oy + ch * 0.92;
-      var rx = cw * 0.42;
-      var ry = Math.max(8, ch * 0.055);
+      var cy = oy + ch * 0.94;
+      var rx = cw * 0.45;
+      var ry = Math.max(8, ch * 0.05);
       ctx.save();
       if (typeof ctx.filter === "string") {
-        ctx.filter = "blur(" + Math.max(6, Math.round(cw * 0.02)) + "px)";
+        ctx.filter = "blur(" + Math.max(8, Math.round(cw * 0.025)) + "px)";
       }
-      ctx.fillStyle = "rgba(0,0,0,0.28)";
+      ctx.fillStyle = "rgba(0,0,0,0.22)";
       ctx.beginPath();
       if (typeof ctx.ellipse === "function") {
         ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
