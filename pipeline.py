@@ -160,12 +160,7 @@ def strip_thin_islands(solid: np.ndarray) -> np.ndarray:
 
 
 def dealer_cleanup(cut: Image.Image) -> Image.Image:
-    """Keep largest car blob only; strip antennas; no roof-flattening / dark-glass eating."""
-    try:
-        import cv2
-    except ImportError:
-        return cut
-
+    """Keep largest car blob; strip antennas on every car/Jeep. Works with or without OpenCV."""
     rgba = np.array(cut)
     if rgba.ndim != 3 or rgba.shape[2] != 4:
         return cut
@@ -192,37 +187,46 @@ def dealer_cleanup(cut: Image.Image) -> Image.Image:
     rgba[:, :, 3] = alpha.astype(np.uint8)
 
     solid = (rgba[:, :, 3] >= 128).astype(np.uint8)
-    kernel = np.ones((3, 3), np.uint8)
-    eroded = cv2.erode(solid, kernel, iterations=1)
+    keep = solid
 
-    num, labels, stats, _ = cv2.connectedComponentsWithStats(eroded, connectivity=4)
-    if num <= 1:
-        num, labels, stats, _ = cv2.connectedComponentsWithStats(solid, connectivity=4)
+    try:
+        import cv2
+
+        kernel = np.ones((3, 3), np.uint8)
+        eroded = cv2.erode(solid, kernel, iterations=1)
+        num, labels, stats, _ = cv2.connectedComponentsWithStats(eroded, connectivity=4)
         if num <= 1:
-            return Image.fromarray(rgba, "RGBA")
+            num, labels, stats, _ = cv2.connectedComponentsWithStats(solid, connectivity=4)
+        if num > 1:
+            areas = stats[1:, cv2.CC_STAT_AREA]
+            largest = 1 + int(np.argmax(areas))
+            keep = (labels == largest).astype(np.uint8)
+            keep = cv2.dilate(keep, kernel, iterations=1)
+            keep = cv2.morphologyEx(keep, cv2.MORPH_CLOSE, kernel, iterations=2)
+            keep = strip_thin_islands(keep)
+    except ImportError:
+        keep = solid
 
-    areas = stats[1:, cv2.CC_STAT_AREA]
-    largest = 1 + int(np.argmax(areas))
-    keep = (labels == largest).astype(np.uint8)
-    keep = cv2.dilate(keep, kernel, iterations=1)
-    keep = cv2.morphologyEx(keep, cv2.MORPH_CLOSE, kernel, iterations=2)
-
-    # Antennas / whip masts on every car & Jeep
+    # Always — antennas on cars, Jeeps, SUVs (no OpenCV required)
     keep = strip_antenna_spikes(keep)
-    keep = strip_thin_islands(keep)
-    # One more pass after islands (spike can detach)
     keep = strip_antenna_spikes(keep)
 
-    # Soft AA — do not erode the silhouette (that chops roof/mirrors)
-    edge = keep.astype(np.float32) * 255.0
-    edge = cv2.GaussianBlur(edge, (0, 0), sigmaX=0.55)
-    edge = np.where(keep > 0, np.maximum(edge, 220), edge)
-    edge = np.clip(edge, 0, 255)
+    try:
+        import cv2
 
-    mask = edge > 10
-    out = rgba.copy()
-    out[~mask] = 0
-    out[mask, 3] = edge[mask].astype(np.uint8)
+        edge = keep.astype(np.float32) * 255.0
+        edge = cv2.GaussianBlur(edge, (0, 0), sigmaX=0.55)
+        edge = np.where(keep > 0, np.maximum(edge, 220), edge)
+        edge = np.clip(edge, 0, 255)
+        mask = edge > 10
+        out = rgba.copy()
+        out[~mask] = 0
+        out[mask, 3] = edge[mask].astype(np.uint8)
+    except ImportError:
+        out = rgba.copy()
+        dead = keep == 0
+        out[dead] = 0
+
     faint = out[:, :, 3] < 16
     out[faint] = 0
     return Image.fromarray(out, "RGBA")
