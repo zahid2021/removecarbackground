@@ -18,6 +18,12 @@
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/styles.css?v=51" />
   <script type="module" src="https://unpkg.com/@splinetool/viewer@1.9.28/build/spline-viewer.js"></script>
+  <script>
+    // Force clean homepage URL (no /index.html in address bar)
+    if (/\/index\.html$/i.test(location.pathname)) {
+      location.replace("/" + location.search + location.hash);
+    }
+  </script>
 </head>
 <body>
   <div class="bg-mesh" aria-hidden="true"></div>
