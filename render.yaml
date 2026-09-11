@@ -68,10 +68,13 @@ services:
       # Old .html bookmarks → clean paths (no .html in public URLs)
       - type: redirect
         source: /transformer.html
-        destination: /
+        destination: /batch
       - type: redirect
         source: /transformer
-        destination: /
+        destination: /batch
+      - type: redirect
+        source: /batch.html
+        destination: /batch
       - type: redirect
         source: /index.html
         destination: /

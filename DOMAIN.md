@@ -7,7 +7,8 @@ Do **not** share:
 - `https://rcb-demo.onrender.com/...`
 - `.../transformer.html` (opens homepage `/` instead)
 
-Batch “multiple images” tool is on the homepage: https://removecarbackground.com/#batch
+Batch “multiple images” tool: https://removecarbackground.com/batch
+(Legacy `/#batch` and `/transformer` redirect to `/batch`.)
 
 ---
 

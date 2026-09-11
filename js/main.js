@@ -129,4 +129,9 @@
     e.preventDefault();
     window.deferredPrompt = e;
   });
+
+  // Legacy hash /#batch on marketing pages → dedicated batch tool
+  if (window.location.hash === "#batch" && !document.getElementById("batchFiles")) {
+    window.location.replace("/batch");
+  }
 })();

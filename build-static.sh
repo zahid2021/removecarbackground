@@ -9,7 +9,7 @@ mkdir -p dist
 cp index.html dist/index.html
 
 PAGES=(
-  account blog contact disclaimer editor examples
+  account batch blog contact disclaimer editor examples
   invite login meet privacy signup terms
 )
 
@@ -44,11 +44,11 @@ for page in "${PAGES[@]}"; do
   fi
 done
 
-# transformer → homepage only
+# transformer → dedicated batch tool
 if [ -f transformer.html ]; then
   mkdir -p dist/transformer
   cp transformer.html dist/transformer/index.html
-  write_redirect_stub "transformer.html" "/"
+  write_redirect_stub "transformer.html" "/batch"
 fi
 
 # Real homepage last (do not replace with redirect stub)
